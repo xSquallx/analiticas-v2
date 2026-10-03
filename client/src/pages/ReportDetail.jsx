@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, Edit3, Link2, Printer, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import FlowHistory from '../components/FlowHistory.jsx';
 import { Empty, ErrorBox, Markdown, MetricTile, SourceBadge, Spinner, StatusBadge } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
 import { useApp } from '../lib/app-context.jsx';
@@ -105,6 +106,8 @@ export default function ReportDetail() {
           </div>
         )}
       </div>
+
+      <FlowHistory report={report} />
 
       <div className="card p-6 sm:p-8">
         <Markdown>{report.analysis}</Markdown>

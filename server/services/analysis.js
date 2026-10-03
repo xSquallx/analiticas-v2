@@ -25,6 +25,30 @@ const RESPONSE_SCHEMA = {
 };
 
 // Reglas fijas: no son editables desde el panel para que el formato de salida nunca se rompa.
+const HISTORY_PERIODS = 3;
+
+/** Resumen de los meses anteriores del mismo flujo para que la IA compare. */
+function historyBlock(history) {
+  if (!history.length) return '';
+  const periodOf = (r) => r.year * 12 + r.month - 1;
+  const periods = [...new Set(history.map(periodOf))].sort((a, b) => b - a).slice(0, HISTORY_PERIODS);
+  const lines = history
+    .filter((r) => periods.includes(periodOf(r)))
+    .map((r) => {
+      const values = METRICS.filter((m) => r[m.key] != null).map((m) => `${m.label}: ${Math.round(r[m.key] * 100) / 100}`);
+      return `- "${r.flowName}" · ${MONTHS[r.month - 1]} ${r.year}: ${values.join('; ') || 'sin métricas'}`;
+    });
+  return `
+
+HISTORIAL DEL MISMO FLUJO (meses anteriores, misma moneda)
+${lines.join('\n')}
+
+Usa este historial para comparar: indica la variación (en %) de las métricas principales frente al mes anterior
+dentro de las secciones del reporte y agrega al final una sección "## Evolución vs. meses anteriores" con 2 a 4 viñetas.
+Si hay varias versiones del flujo (nombres con distinta fecha), compara con la versión de nombre más parecido.
+No uses el historial para rellenar métricas de este mes.`;
+}
+
 function extractionRules(verifiedFacts) {
   return `
 EXTRACCIÓN DE MÉTRICAS (obligatorio)
@@ -144,7 +168,7 @@ export async function testGemini() {
  * Ejecuta el análisis de un reporte con sus archivos.
  * Devuelve métricas (null = no disponible), avisos y el texto en Markdown.
  */
-export async function analyzeReport(report, files) {
+export async function analyzeReport(report, files, history = []) {
   if (!ai) throw new HttpError(503, 'Falta configurar GEMINI_API_KEY en el servidor');
   if (files.length === 0) throw new HttpError(400, 'Sube al menos un archivo antes de analizar');
 
@@ -158,7 +182,7 @@ export async function analyzeReport(report, files) {
   const { parts, verifiedFacts, computed } = buildFileParts(files);
   const result = await callGemini(
     [{ role: 'user', parts: [{ text: 'Archivos del flujo a analizar:' }, ...parts] }],
-    instructions + '\n' + extractionRules(verifiedFacts),
+    instructions + '\n' + extractionRules(verifiedFacts) + historyBlock(history),
   );
 
   const metrics = sanitizeMetrics(result.metrics);

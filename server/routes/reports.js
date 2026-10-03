@@ -3,6 +3,7 @@ import multer from 'multer';
 import { z } from 'zod';
 import { ACCEPTED_MIME, CURRENCIES, MAX_FILE_BYTES, METRICS, REPORT_STATUS, UPLOAD_SLOTS } from '../lib/catalog.js';
 import { prisma } from '../lib/db.js';
+import { familyKey, periodIndex, previousMatches } from '../lib/flowKey.js';
 import { HttpError, notFound, parseOr400 } from '../lib/http.js';
 import { analyzeReport } from '../services/analysis.js';
 import { requireAuth } from '../services/auth.js';
@@ -94,7 +95,23 @@ reportsRouter.get('/:id', async (req, res) => {
   res.json({ report: toApi(report) });
 });
 
-// ---------- Escritura (admin) ----------
+/** Todos los reportes visibles de la misma familia de flujo (misma moneda), en orden cronológico. */
+export async function findFlowHistory(report, where = {}) {
+  const key = familyKey(report.flowName, report.currency);
+  const sameCurrency = await prisma.report.findMany({ where: { ...where, currency: report.currency }, select: LIST_SELECT });
+  return sameCurrency
+    .filter((r) => familyKey(r.flowName, r.currency) === key)
+    .sort((a, b) => periodIndex(a) - periodIndex(b) || a.flowName.localeCompare(b.flowName));
+}
+
+reportsRouter.get('/:id/history', async (req, res) => {
+  const report = await findReportOr404(req, req.params.id);
+  const items = await findFlowHistory(report, visibleWhere(req));
+  const prev = previousMatches(items);
+  res.json({ items: items.map((r) => ({ ...r, previousId: prev.get(r.id)?.id ?? null })) });
+});
+
+// ---------- Escritura (equipo) ----------
 
 reportsRouter.post('/', requireAuth, async (req, res) => {
   const data = parseOr400(metaSchema, req.body);
@@ -166,7 +183,9 @@ reportsRouter.delete('/:id/files/:slot', requireAuth, async (req, res) => {
 reportsRouter.post('/:id/analyze', requireAuth, async (req, res) => {
   const report = await findReportOr404(req, req.params.id);
   const files = await prisma.reportFile.findMany({ where: { reportId: report.id } });
-  const result = await analyzeReport(report, files);
+  // Meses anteriores del mismo flujo (publicados) para que la IA compare la evolución
+  const history = (await findFlowHistory(report, { status: 'PUBLISHED' })).filter((r) => periodIndex(r) < periodIndex(report));
+  const result = await analyzeReport(report, files, history);
 
   const updated = await prisma.report.update({
     where: { id: report.id },
