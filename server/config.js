@@ -16,7 +16,9 @@ const schema = z.object({
   V1_API_URL: z.string().url().optional(),
 });
 
-const parsed = schema.safeParse(process.env);
+// Una variable vacía (p. ej. "GEMINI_API_KEY=") cuenta como no definida.
+const env = Object.fromEntries(Object.entries(process.env).filter(([, v]) => v !== undefined && v.trim() !== ''));
+const parsed = schema.safeParse(env);
 if (!parsed.success) {
   console.error('Configuración inválida:\n' + parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n'));
   process.exit(1);
