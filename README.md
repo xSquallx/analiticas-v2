@@ -8,7 +8,7 @@ Sistema para analizar flujos/campañas de **Optimove** con **Gemini**. Se suben 
 |---|---|
 | **Visitante** (enlace público) | Ver dashboard, lista de reportes publicados y cada reporte. Copiar enlace / exportar a PDF. |
 | **Analista** (botón *Iniciar sesión*) | Crear análisis, subir archivos, ejecutar la IA, corregir métricas y texto, publicar/despublicar, eliminar. Cambiar su contraseña. |
-| **Administrador** | Todo lo anterior + crear/editar/eliminar usuarios (Ajustes → Usuarios del equipo), editar el prompt e importar historial de V1. |
+| **Administrador** | Todo lo anterior + crear/editar/eliminar usuarios (Ajustes → Usuarios del equipo), editar el prompt, importar historial de V1 y ver **Consumo IA** (análisis, tokens y costo estimado por mes y por persona). |
 
 Los usuarios se crean desde **Ajustes**. Si un administrador cambia la contraseña de alguien (o la persona la cambia), se cierran sus sesiones abiertas.
 
@@ -29,7 +29,7 @@ server/            API (Express 5 + Prisma + Postgres)
   config.js        variables de entorno validadas
   lib/catalog.js   monedas, meses, métricas y casillas de archivos (fuente única)
   routes/          auth, reports, users, admin
-  services/        analysis (Gemini), csv, prompts, auth, legacyImport
+  services/        analysis (Gemini), usage (consumo/costo), csv, prompts, auth, legacyImport
   prompts/         prompt por defecto (v1)
 prisma/            schema + migraciones
 client/            React 19 + Vite + Tailwind 4 + React Router
@@ -47,6 +47,7 @@ Dockerfile         imagen única (API + frontend) para Easypanel
 | `ADMIN_FORCE_PASSWORD_RESET` | No | `true` para restablecer la contraseña del admin a `ADMIN_PASSWORD` al reiniciar (si se olvidó). Quítalo después. |
 | `ADMIN_NAME` | No | Nombre visible del admin |
 | `GEMINI_MODEL` | No | Por defecto `gemini-3.5-flash` |
+| `GEMINI_PRICE_INPUT_PER_M` / `GEMINI_PRICE_OUTPUT_PER_M` | No | Precio USD por 1M tokens para el costo estimado, si el modelo no está en `server/services/usage.js` |
 | `V1_API_URL` | No | API del sistema anterior para importar (`https://backend-analiticas.166.1.85.144.nip.io/api`) |
 | `SESSION_SECRET` | No | Si no se define se genera y guarda en la BD |
 

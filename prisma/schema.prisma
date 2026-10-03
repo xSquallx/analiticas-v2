@@ -17,6 +17,7 @@ model User {
   createdAt    DateTime @default(now())
 
   reports Report[]
+  aiUsage AiUsage[]
 
   @@map("users")
 }
@@ -60,6 +61,7 @@ model Report {
   createdById String?
   createdBy   User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
   files       ReportFile[]
+  aiUsage     AiUsage[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   publishedAt DateTime?
@@ -105,4 +107,33 @@ model Setting {
   value String @db.Text
 
   @@map("settings")
+}
+
+/// Registro de cada consulta a Gemini (para controlar consumo y costo).
+model AiUsage {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  kind      String // ANALYSIS | TEST
+  model     String
+  success   Boolean
+  error     String?
+  attempts  Int      @default(1)
+  durationMs Int
+
+  inputTokens    Int @default(0)
+  outputTokens   Int @default(0) // incluye tokens de "pensamiento"
+  totalTokens    Int @default(0)
+  /// Costo estimado en USD con los precios vigentes al momento de la consulta.
+  costUsd        Float @default(0)
+
+  userId   String?
+  user     User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  reportId String?
+  report   Report? @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  /// Copia del nombre/periodo del reporte por si luego se elimina.
+  reportLabel String?
+  userLabel   String?
+
+  @@index([createdAt])
+  @@map("ai_usage")
 }

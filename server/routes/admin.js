@@ -5,13 +5,14 @@ import { parseOr400 } from '../lib/http.js';
 import { testGemini } from '../services/analysis.js';
 import { requireAdmin, requireAuth } from '../services/auth.js';
 import { importFromV1 } from '../services/legacyImport.js';
+import { usageSummary } from '../services/usage.js';
 import { activatePromptVersion, createPromptVersion, listPromptVersions } from '../services/prompts.js';
 
 export const adminRouter = Router();
 
 // Cualquier usuario del equipo puede verificar la conexión con la IA.
-adminRouter.post('/gemini-test', requireAuth, async (_req, res) => {
-  res.json(await testGemini());
+adminRouter.post('/gemini-test', requireAuth, async (req, res) => {
+  res.json(await testGemini({ user: req.user }));
 });
 
 // El resto (prompt e importación) es solo para administradores.
@@ -32,4 +33,17 @@ adminRouter.post('/prompts/:id/activate', async (req, res) => {
 
 adminRouter.post('/import-v1', async (_req, res) => {
   res.json(await importFromV1());
+});
+
+// Consumo de IA del mes (por defecto, el mes actual)
+adminRouter.get('/usage', async (req, res) => {
+  const now = new Date();
+  const { year, month } = parseOr400(
+    z.object({
+      year: z.coerce.number().int().min(2020).max(2100).default(now.getFullYear()),
+      month: z.coerce.number().int().min(1).max(12).default(now.getMonth() + 1),
+    }),
+    req.query,
+  );
+  res.json(await usageSummary(year, month));
 });

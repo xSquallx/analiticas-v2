@@ -185,7 +185,7 @@ reportsRouter.post('/:id/analyze', requireAuth, async (req, res) => {
   const files = await prisma.reportFile.findMany({ where: { reportId: report.id } });
   // Meses anteriores del mismo flujo (publicados) para que la IA compare la evolución
   const history = (await findFlowHistory(report, { status: 'PUBLISHED' })).filter((r) => periodIndex(r) < periodIndex(report));
-  const result = await analyzeReport(report, files, history);
+  const result = await analyzeReport(report, files, history, { user: req.user });
 
   const updated = await prisma.report.update({
     where: { id: report.id },

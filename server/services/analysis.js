@@ -4,6 +4,7 @@ import { METRICS, MONTHS, UPLOAD_SLOTS } from '../lib/catalog.js';
 import { HttpError } from '../lib/http.js';
 import { countUniqueIds, describeCsvForAi } from './csv.js';
 import { getActivePrompt, renderPrompt } from './prompts.js';
+import { UsageTracker } from './usage.js';
 
 const ai = config.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: config.GEMINI_API_KEY }) : null;
 
@@ -116,11 +117,12 @@ function sanitizeMetrics(raw) {
   return out;
 }
 
-async function callGemini(contents, systemInstruction) {
+async function callGemini(contents, systemInstruction, tracker) {
   let lastError;
   for (let attempt = 1; attempt <= 2; attempt++) {
+    let response;
     try {
-      const response = await ai.models.generateContent({
+      response = await ai.models.generateContent({
         model: config.GEMINI_MODEL,
         contents,
         config: {
@@ -130,8 +132,10 @@ async function callGemini(contents, systemInstruction) {
           temperature: 0.4,
         },
       });
+      tracker.add(response.usageMetadata);
       return parseJson(response.text ?? '');
     } catch (err) {
+      if (!response) tracker.add(null); // falló la llamada: cuenta el intento, sin tokens
       lastError = err;
       console.error(`Gemini intento ${attempt} falló:`, err.message);
       // Errores de cuenta/permisos no se arreglan reintentando.
@@ -153,14 +157,19 @@ function friendlyGeminiError(err) {
 }
 
 /** Llamada mínima para verificar que la key y el modelo funcionan. */
-export async function testGemini() {
+export async function testGemini({ user } = {}) {
   if (!ai) return { ok: false, model: config.GEMINI_MODEL, message: 'Falta configurar GEMINI_API_KEY en el servidor' };
+  const tracker = new UsageTracker('TEST', { user });
   try {
     const response = await ai.models.generateContent({ model: config.GEMINI_MODEL, contents: 'Responde solo: OK' });
+    tracker.add(response.usageMetadata);
+    await tracker.save({ success: true });
     return { ok: true, model: config.GEMINI_MODEL, message: `Conexión correcta. Respuesta: ${(response.text ?? '').trim().slice(0, 50)}` };
   } catch (err) {
     console.error('Prueba de Gemini falló:', err.message);
-    return { ok: false, model: config.GEMINI_MODEL, message: friendlyGeminiError(err) };
+    const message = friendlyGeminiError(err);
+    await tracker.save({ success: false, error: message });
+    return { ok: false, model: config.GEMINI_MODEL, message };
   }
 }
 
@@ -168,7 +177,7 @@ export async function testGemini() {
  * Ejecuta el análisis de un reporte con sus archivos.
  * Devuelve métricas (null = no disponible), avisos y el texto en Markdown.
  */
-export async function analyzeReport(report, files, history = []) {
+export async function analyzeReport(report, files, history = [], { user } = {}) {
   if (!ai) throw new HttpError(503, 'Falta configurar GEMINI_API_KEY en el servidor');
   if (files.length === 0) throw new HttpError(400, 'Sube al menos un archivo antes de analizar');
 
@@ -180,10 +189,19 @@ export async function analyzeReport(report, files, history = []) {
   });
 
   const { parts, verifiedFacts, computed } = buildFileParts(files);
-  const result = await callGemini(
-    [{ role: 'user', parts: [{ text: 'Archivos del flujo a analizar:' }, ...parts] }],
-    instructions + '\n' + extractionRules(verifiedFacts) + historyBlock(history),
-  );
+  const tracker = new UsageTracker('ANALYSIS', { user, report });
+  let result;
+  try {
+    result = await callGemini(
+      [{ role: 'user', parts: [{ text: 'Archivos del flujo a analizar:' }, ...parts] }],
+      instructions + '\n' + extractionRules(verifiedFacts) + historyBlock(history),
+      tracker,
+    );
+  } catch (err) {
+    await tracker.save({ success: false, error: err.message });
+    throw err;
+  }
+  await tracker.save({ success: true });
 
   const metrics = sanitizeMetrics(result.metrics);
   const warnings = Array.isArray(result.warnings) ? result.warnings.filter((w) => typeof w === 'string') : [];

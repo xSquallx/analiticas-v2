@@ -1,4 +1,4 @@
-import { BarChart3, FileText, LayoutDashboard, LogIn, LogOut, Plus, Settings } from 'lucide-react';
+import { BarChart3, FileText, Gauge, LayoutDashboard, LogIn, LogOut, Plus, Settings } from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { useApp } from '../lib/app-context.jsx';
 
@@ -40,6 +40,7 @@ export default function Layout() {
             <Tab to="/" icon={LayoutDashboard} end>Dashboard</Tab>
             <Tab to="/reportes" icon={FileText}>Reportes</Tab>
             {canEdit && <Tab to="/admin/nuevo" icon={Plus}>Nuevo análisis</Tab>}
+            {isAdmin && <Tab to="/admin/consumo" icon={Gauge}>Consumo IA</Tab>}
             {canEdit && <Tab to="/admin/ajustes" icon={Settings}>Ajustes</Tab>}
           </nav>
 

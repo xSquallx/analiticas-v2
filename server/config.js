@@ -6,6 +6,9 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL es obligatorio'),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-3.5-flash'),
+  // Opcional: precios USD por 1M tokens si el modelo no está en server/services/usage.js
+  GEMINI_PRICE_INPUT_PER_M: z.coerce.number().nonnegative().optional(),
+  GEMINI_PRICE_OUTPUT_PER_M: z.coerce.number().nonnegative().optional(),
   // Admin inicial: se crea al arrancar si no existe. Para restablecer su contraseña
   // pon ADMIN_FORCE_PASSWORD_RESET=true, reinicia y luego quítalo.
   ADMIN_EMAIL: z.string().email().optional(),
