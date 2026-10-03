@@ -153,7 +153,7 @@ function GeminiTest() {
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Probar conexión
       </button>
       {result && (
-        <p className={}>
+        <p className={`mt-3 flex items-start gap-2 text-sm ${result.ok ? 'text-good' : 'text-red-300'}`}>
           {result.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
           <span>
             {result.model && <strong>{result.model}: </strong>}
