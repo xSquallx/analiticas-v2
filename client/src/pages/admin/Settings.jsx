@@ -1,4 +1,4 @@
-import { DatabaseZap, History, Loader2, Save } from 'lucide-react';
+import { CheckCircle2, DatabaseZap, History, Loader2, Save, Sparkles, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ErrorBox, Spinner } from '../../components/ui.jsx';
 import { api } from '../../lib/api.js';
@@ -130,10 +130,46 @@ function LegacyImport() {
   );
 }
 
+function GeminiTest() {
+  const [result, setResult] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      setResult(await api.post('/admin/gemini-test'));
+    } catch (e) {
+      setResult({ ok: false, message: e.message });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="card p-5 sm:p-6">
+      <h2 className="text-lg font-bold text-white">Conexión con Gemini</h2>
+      <p className="mb-4 mt-1 text-sm text-muted">Verifica que la API key y el modelo configurados en el servidor funcionan (consume una consulta mínima).</p>
+      <button className="btn-ghost" onClick={run} disabled={busy}>
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Probar conexión
+      </button>
+      {result && (
+        <p className={}>
+          {result.ok ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+          <span>
+            {result.model && <strong>{result.model}: </strong>}
+            {result.message}
+          </span>
+        </p>
+      )}
+    </section>
+  );
+}
+
 export default function Settings() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <h1 className="text-2xl font-bold text-white">Ajustes</h1>
+      <GeminiTest />
       <PromptEditor />
       <LegacyImport />
     </div>

@@ -128,6 +128,18 @@ function friendlyGeminiError(err) {
   }
 }
 
+/** Llamada mínima para verificar que la key y el modelo funcionan. */
+export async function testGemini() {
+  if (!ai) return { ok: false, model: config.GEMINI_MODEL, message: 'Falta configurar GEMINI_API_KEY en el servidor' };
+  try {
+    const response = await ai.models.generateContent({ model: config.GEMINI_MODEL, contents: 'Responde solo: OK' });
+    return { ok: true, model: config.GEMINI_MODEL, message: `Conexión correcta. Respuesta: ${(response.text ?? '').trim().slice(0, 50)}` };
+  } catch (err) {
+    console.error('Prueba de Gemini falló:', err.message);
+    return { ok: false, model: config.GEMINI_MODEL, message: friendlyGeminiError(err) };
+  }
+}
+
 /**
  * Ejecuta el análisis de un reporte con sus archivos.
  * Devuelve métricas (null = no disponible), avisos y el texto en Markdown.

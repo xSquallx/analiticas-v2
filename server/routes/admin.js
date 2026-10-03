@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config.js';
 import { parseOr400 } from '../lib/http.js';
+import { testGemini } from '../services/analysis.js';
 import { requireAdmin } from '../services/auth.js';
 import { importFromV1 } from '../services/legacyImport.js';
 import { activatePromptVersion, createPromptVersion, listPromptVersions } from '../services/prompts.js';
@@ -24,4 +25,8 @@ adminRouter.post('/prompts/:id/activate', async (req, res) => {
 
 adminRouter.post('/import-v1', async (_req, res) => {
   res.json(await importFromV1());
+});
+
+adminRouter.post('/gemini-test', async (_req, res) => {
+  res.json(await testGemini());
 });
