@@ -9,9 +9,9 @@ import Reports from './pages/Reports.jsx';
 import ReportEditor from './pages/admin/ReportEditor.jsx';
 import Settings from './pages/admin/Settings.jsx';
 
-function AdminOnly({ children }) {
-  const { isAdmin } = useApp();
-  return isAdmin ? children : <Navigate to="/login" replace />;
+function MembersOnly({ children }) {
+  const { canEdit } = useApp();
+  return canEdit ? children : <Navigate to="/login" replace />;
 }
 
 export default function App() {
@@ -26,9 +26,9 @@ export default function App() {
         <Route path="reportes" element={<Reports />} />
         <Route path="reportes/:id" element={<ReportDetail />} />
         <Route path="login" element={<Login />} />
-        <Route path="admin/nuevo" element={<AdminOnly><ReportEditor /></AdminOnly>} />
-        <Route path="admin/reportes/:id" element={<AdminOnly><ReportEditor /></AdminOnly>} />
-        <Route path="admin/ajustes" element={<AdminOnly><Settings /></AdminOnly>} />
+        <Route path="admin/nuevo" element={<MembersOnly><ReportEditor /></MembersOnly>} />
+        <Route path="admin/reportes/:id" element={<MembersOnly><ReportEditor /></MembersOnly>} />
+        <Route path="admin/ajustes" element={<MembersOnly><Settings /></MembersOnly>} />
         <Route path="*" element={<Empty title="Página no encontrada" />} />
       </Route>
     </Routes>

@@ -16,7 +16,7 @@ function hintFor(key, r) {
 
 export default function ReportDetail() {
   const { id } = useParams();
-  const { meta, isAdmin } = useApp();
+  const { meta, canEdit } = useApp();
   const navigate = useNavigate();
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
@@ -60,7 +60,7 @@ export default function ReportDetail() {
           <button className="btn-ghost" onClick={() => window.print()}>
             <Printer className="h-4 w-4" /> PDF
           </button>
-          {isAdmin && (
+          {canEdit && (
             <>
               <Link to={`/admin/reportes/${report.id}`} className="btn-ghost">
                 <Edit3 className="h-4 w-4" /> Editar
@@ -77,11 +77,12 @@ export default function ReportDetail() {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold text-white">{report.flowName}</h1>
           <SourceBadge source={report.source} />
-          {isAdmin && <StatusBadge status={report.status} />}
+          {canEdit && <StatusBadge status={report.status} />}
         </div>
         <p className="mt-1 text-sm text-muted">
           {periodLabel(meta.months, report.month, report.year)} · <span className="text-indigo-300">{report.currency}</span>
           {report.analyzedAt && <> · analizado el {formatDate(report.analyzedAt)}</>}
+          {canEdit && report.createdBy && <> · creado por {report.createdBy.name}</>}
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -109,7 +110,7 @@ export default function ReportDetail() {
         <Markdown>{report.analysis}</Markdown>
       </div>
 
-      {isAdmin && report.notes && (
+      {canEdit && report.notes && (
         <div className="card no-print p-5">
           <p className="label">Notas internas (solo admins)</p>
           <p className="whitespace-pre-wrap text-sm text-slate-300">{report.notes}</p>

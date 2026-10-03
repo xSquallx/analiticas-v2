@@ -7,7 +7,10 @@ Sistema para analizar flujos/campañas de **Optimove** con **Gemini**. Se suben 
 | Quién | Qué puede hacer |
 |---|---|
 | **Visitante** (enlace público) | Ver dashboard, lista de reportes publicados y cada reporte. Copiar enlace / exportar a PDF. |
-| **Admin** (botón *Iniciar sesión*) | Crear análisis, subir archivos, ejecutar la IA, corregir métricas y texto, publicar/despublicar, eliminar, editar el prompt, importar historial de V1. |
+| **Analista** (botón *Iniciar sesión*) | Crear análisis, subir archivos, ejecutar la IA, corregir métricas y texto, publicar/despublicar, eliminar. Cambiar su contraseña. |
+| **Administrador** | Todo lo anterior + crear/editar/eliminar usuarios (Ajustes → Usuarios del equipo), editar el prompt e importar historial de V1. |
+
+Los usuarios se crean desde **Ajustes**. Si un administrador cambia la contraseña de alguien (o la persona la cambia), se cierran sus sesiones abiertas.
 
 Flujo de un análisis: **Nuevo análisis → datos del flujo → subir archivos (8 casillas) → Analizar con IA → revisar métricas y avisos → Guardar y publicar.**
 
@@ -25,12 +28,12 @@ server/            API (Express 5 + Prisma + Postgres)
   app.js           middlewares, rutas, frontend estático
   config.js        variables de entorno validadas
   lib/catalog.js   monedas, meses, métricas y casillas de archivos (fuente única)
-  routes/          auth, reports, admin
+  routes/          auth, reports, users, admin
   services/        analysis (Gemini), csv, prompts, auth, legacyImport
   prompts/         prompt por defecto (v1)
 prisma/            schema + migraciones
 client/            React 19 + Vite + Tailwind 4 + React Router
-  src/pages/       Dashboard, Reports, ReportDetail, Login, admin/ReportEditor, admin/Settings
+  src/pages/       Dashboard, Reports, ReportDetail, Login, admin/ReportEditor, admin/Settings, admin/Team
 Dockerfile         imagen única (API + frontend) para Easypanel
 ```
 
@@ -40,7 +43,8 @@ Dockerfile         imagen única (API + frontend) para Easypanel
 |---|---|---|
 | `DATABASE_URL` | Sí | Conexión a Postgres |
 | `GEMINI_API_KEY` | Sí (para analizar) | API key de Google AI Studio |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Sí (primer arranque) | Admin. Si cambias la contraseña y reinicias, se actualiza. |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Sí (primer arranque) | Primer administrador. Solo se usa para crearlo; después la contraseña se cambia desde la app. |
+| `ADMIN_FORCE_PASSWORD_RESET` | No | `true` para restablecer la contraseña del admin a `ADMIN_PASSWORD` al reiniciar (si se olvidó). Quítalo después. |
 | `ADMIN_NAME` | No | Nombre visible del admin |
 | `GEMINI_MODEL` | No | Por defecto `gemini-3.5-flash` |
 | `V1_API_URL` | No | API del sistema anterior para importar (`https://backend-analiticas.166.1.85.144.nip.io/api`) |

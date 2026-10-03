@@ -10,7 +10,7 @@ import { useReports } from '../lib/useReports.js';
 const COLUMNS = ['avgDeposits', 'avgDepositAmount', 'avgActivityDays', 'avgNetRevenue'];
 
 export default function Reports() {
-  const { meta, isAdmin } = useApp();
+  const { meta, canEdit } = useApp();
   const navigate = useNavigate();
   const { reports, loading, error } = useReports();
   const [filters, setFilter] = useFilters();
@@ -57,7 +57,7 @@ export default function Reports() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-slate-100">{r.flowName}</span>
                       <SourceBadge source={r.source} />
-                      {isAdmin && r.status !== 'PUBLISHED' && <StatusBadge status={r.status} />}
+                      {canEdit && r.status !== 'PUBLISHED' && <StatusBadge status={r.status} />}
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted">{periodLabel(meta.months, r.month, r.year)}</td>

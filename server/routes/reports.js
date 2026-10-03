@@ -5,7 +5,7 @@ import { ACCEPTED_MIME, CURRENCIES, MAX_FILE_BYTES, METRICS, REPORT_STATUS, UPLO
 import { prisma } from '../lib/db.js';
 import { HttpError, notFound, parseOr400 } from '../lib/http.js';
 import { analyzeReport } from '../services/analysis.js';
-import { requireAdmin } from '../services/auth.js';
+import { requireAuth } from '../services/auth.js';
 
 export const reportsRouter = Router();
 
@@ -81,7 +81,9 @@ reportsRouter.get('/', async (req, res) => {
 
 reportsRouter.get('/:id', async (req, res) => {
   const report = await findReportOr404(req, req.params.id, {
-    include: req.user ? { files: { select: { slot: true, filename: true, mimeType: true, size: true, createdAt: true } } } : undefined,
+    include: req.user
+      ? { files: { select: { slot: true, filename: true, mimeType: true, size: true, createdAt: true } }, createdBy: { select: { name: true } } }
+      : undefined,
   });
   if (!req.user) {
     // Datos internos que no hacen falta en la vista pública
@@ -94,13 +96,13 @@ reportsRouter.get('/:id', async (req, res) => {
 
 // ---------- Escritura (admin) ----------
 
-reportsRouter.post('/', requireAdmin, async (req, res) => {
+reportsRouter.post('/', requireAuth, async (req, res) => {
   const data = parseOr400(metaSchema, req.body);
   const report = await prisma.report.create({ data: { ...data, createdById: req.user.id } });
   res.status(201).json({ report });
 });
 
-reportsRouter.patch('/:id', requireAdmin, async (req, res) => {
+reportsRouter.patch('/:id', requireAuth, async (req, res) => {
   const current = await findReportOr404(req, req.params.id);
   const { metrics, status, ...rest } = parseOr400(updateSchema, req.body);
   const data = { ...rest, ...(metrics ?? {}) };
@@ -112,7 +114,7 @@ reportsRouter.patch('/:id', requireAdmin, async (req, res) => {
   res.json({ report });
 });
 
-reportsRouter.delete('/:id', requireAdmin, async (req, res) => {
+reportsRouter.delete('/:id', requireAuth, async (req, res) => {
   const current = await findReportOr404(req, req.params.id);
   await prisma.report.delete({ where: { id: current.id } });
   res.json({ ok: true });
@@ -124,7 +126,7 @@ function assertSlot(slot) {
   if (!SLOT_KEYS.includes(slot)) throw new HttpError(400, `Tipo de archivo desconocido: ${slot}`);
 }
 
-reportsRouter.put('/:id/files/:slot', requireAdmin, upload.single('file'), async (req, res) => {
+reportsRouter.put('/:id/files/:slot', requireAuth, upload.single('file'), async (req, res) => {
   assertSlot(req.params.slot);
   const report = await findReportOr404(req, req.params.id);
   const file = req.file;
@@ -144,7 +146,7 @@ reportsRouter.put('/:id/files/:slot', requireAdmin, upload.single('file'), async
   res.json({ file: saved });
 });
 
-reportsRouter.get('/:id/files/:slot', requireAdmin, async (req, res) => {
+reportsRouter.get('/:id/files/:slot', requireAuth, async (req, res) => {
   assertSlot(req.params.slot);
   const file = await prisma.reportFile.findUnique({ where: { reportId_slot: { reportId: req.params.id, slot: req.params.slot } } });
   if (!file) throw notFound('Archivo');
@@ -153,7 +155,7 @@ reportsRouter.get('/:id/files/:slot', requireAdmin, async (req, res) => {
   res.send(Buffer.from(file.data));
 });
 
-reportsRouter.delete('/:id/files/:slot', requireAdmin, async (req, res) => {
+reportsRouter.delete('/:id/files/:slot', requireAuth, async (req, res) => {
   assertSlot(req.params.slot);
   await prisma.reportFile.deleteMany({ where: { reportId: req.params.id, slot: req.params.slot } });
   res.json({ ok: true });
@@ -161,7 +163,7 @@ reportsRouter.delete('/:id/files/:slot', requireAdmin, async (req, res) => {
 
 // ---------- IA (admin) ----------
 
-reportsRouter.post('/:id/analyze', requireAdmin, async (req, res) => {
+reportsRouter.post('/:id/analyze', requireAuth, async (req, res) => {
   const report = await findReportOr404(req, req.params.id);
   const files = await prisma.reportFile.findMany({ where: { reportId: report.id } });
   const result = await analyzeReport(report, files);

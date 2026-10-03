@@ -2,7 +2,9 @@ import { CheckCircle2, DatabaseZap, History, Loader2, Save, Sparkles, XCircle } 
 import { useEffect, useState } from 'react';
 import { ErrorBox, Spinner } from '../../components/ui.jsx';
 import { api } from '../../lib/api.js';
+import { useApp } from '../../lib/app-context.jsx';
 import { formatDate } from '../../lib/format.js';
+import { ChangePassword, UsersManager } from './Team.jsx';
 
 function PromptEditor() {
   const [data, setData] = useState(null);
@@ -166,12 +168,15 @@ function GeminiTest() {
 }
 
 export default function Settings() {
+  const { isAdmin } = useApp();
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <h1 className="text-2xl font-bold text-white">Ajustes</h1>
+      {isAdmin && <UsersManager />}
+      <ChangePassword />
       <GeminiTest />
-      <PromptEditor />
-      <LegacyImport />
+      {isAdmin && <PromptEditor />}
+      {isAdmin && <LegacyImport />}
     </div>
   );
 }

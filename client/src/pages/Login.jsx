@@ -5,14 +5,14 @@ import { ErrorBox } from '../components/ui.jsx';
 import { useApp } from '../lib/app-context.jsx';
 
 export default function Login() {
-  const { login, isAdmin } = useApp();
+  const { login, canEdit } = useApp();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  if (isAdmin) return <Navigate to="/" replace />;
+  if (canEdit) return <Navigate to="/" replace />;
 
   const submit = async (e) => {
     e.preventDefault();
@@ -32,7 +32,7 @@ export default function Login() {
     <div className="mx-auto mt-10 max-w-sm">
       <form onSubmit={submit} className="card space-y-4 p-6">
         <div>
-          <h1 className="text-xl font-bold text-white">Acceso administrador</h1>
+          <h1 className="text-xl font-bold text-white">Acceso del equipo</h1>
           <p className="text-sm text-muted">Para crear y editar análisis. Ver los reportes no requiere sesión.</p>
         </div>
         <label className="block">

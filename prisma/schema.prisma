@@ -12,6 +12,8 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  /// ADMIN: gestiona usuarios, prompt e importación. EDITOR: crea, edita y publica análisis.
+  role         String   @default("EDITOR")
   createdAt    DateTime @default(now())
 
   reports Report[]

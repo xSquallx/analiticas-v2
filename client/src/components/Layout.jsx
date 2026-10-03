@@ -20,7 +20,7 @@ function Tab({ to, icon: Icon, children, end }) {
 }
 
 export default function Layout() {
-  const { user, isAdmin, logout } = useApp();
+  const { user, canEdit, isAdmin, logout } = useApp();
   const navigate = useNavigate();
 
   return (
@@ -39,14 +39,17 @@ export default function Layout() {
           <nav className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
             <Tab to="/" icon={LayoutDashboard} end>Dashboard</Tab>
             <Tab to="/reportes" icon={FileText}>Reportes</Tab>
-            {isAdmin && <Tab to="/admin/nuevo" icon={Plus}>Nuevo análisis</Tab>}
-            {isAdmin && <Tab to="/admin/ajustes" icon={Settings}>Ajustes</Tab>}
+            {canEdit && <Tab to="/admin/nuevo" icon={Plus}>Nuevo análisis</Tab>}
+            {canEdit && <Tab to="/admin/ajustes" icon={Settings}>Ajustes</Tab>}
           </nav>
 
           <div className="ml-auto flex items-center gap-2">
             {user ? (
               <>
-                <span className="hidden text-sm text-muted md:inline">{user.name}</span>
+                <span className="hidden text-sm text-muted md:inline">
+                  {user.name}
+                  <span className="ml-1 text-xs text-slate-500">· {isAdmin ? 'Administrador' : 'Analista'}</span>
+                </span>
                 <button className="btn-ghost" onClick={() => logout().then(() => navigate('/'))}>
                   <LogOut className="h-4 w-4" /> Salir
                 </button>

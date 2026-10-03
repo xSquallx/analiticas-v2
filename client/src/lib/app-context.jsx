@@ -3,7 +3,7 @@ import { api } from './api.js';
 
 const AppContext = createContext(null);
 
-/** Sesión del admin + catálogo del dominio (monedas, meses, métricas, archivos). */
+/** Sesión del usuario + catálogo del dominio (monedas, meses, métricas, archivos). */
 export function AppProvider({ children }) {
   const [user, setUser] = useState(null);
   const [meta, setMeta] = useState(null);
@@ -31,7 +31,11 @@ export function AppProvider({ children }) {
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, isAdmin: !!user, meta, ready, error, login, logout }), [user, meta, ready, error, login, logout]);
+  // canEdit: cualquier miembro del equipo con sesión. isAdmin: además gestiona usuarios, prompt e importación.
+  const value = useMemo(
+    () => ({ user, canEdit: !!user, isAdmin: user?.role === 'ADMIN', meta, ready, error, login, logout }),
+    [user, meta, ready, error, login, logout],
+  );
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
