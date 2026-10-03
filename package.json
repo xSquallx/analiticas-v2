@@ -1,0 +1,30 @@
+{
+  "name": "analiticas-v2",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Análisis de flujos CRM (Optimove) con Gemini",
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env server/index.js",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm --prefix client ci && npm --prefix client run build",
+    "start": "prisma migrate deploy && node server/index.js",
+    "db:migrate": "prisma migrate dev",
+    "postinstall": "prisma generate"
+  },
+  "dependencies": {
+    "@google/genai": "^2.27.0",
+    "@prisma/client": "6.19.3",
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "papaparse": "^5.7.0",
+    "prisma": "6.19.3",
+    "zod": "^4.6.5"
+  }
+}

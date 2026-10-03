@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  reports Report[]
+
+  @@map("users")
+}
+
+/// Un análisis de un flujo/campaña de Optimove para un mes y una moneda.
+model Report {
+  id       String @id @default(uuid())
+  flowName String
+  month    Int // 1-12
+  year     Int
+  currency String // VES/USD, CLP, PEN, MXN
+
+  /// DRAFT: solo visible para admins. PUBLISHED: visible en el enlace público.
+  status String @default("DRAFT")
+  /// V2 = creado en este sistema. V1 = importado del sistema anterior.
+  source String @default("V2")
+  legacyId String? @unique
+
+  // Métricas. null = dato no disponible (nunca se inventa).
+  targetedCustomers Int?
+  emailsSent        Int?
+  emailsOpened      Int?
+  emailsClicked     Int?
+  depositors        Int?
+  avgDeposits       Float?
+  avgDepositAmount  Float?
+  avgActivityDays   Float?
+  avgBetAmount      Float?
+  avgNetRevenue     Float?
+  avgSportBets      Float?
+
+  analysis String @default("") @db.Text
+  notes    String? @db.Text
+
+  /// Metadatos de la última ejecución de IA (modelo, versión de prompt, avisos).
+  aiModel       String?
+  promptVersion Int?
+  aiWarnings    Json?
+  analyzedAt    DateTime?
+
+  createdById String?
+  createdBy   User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  files       ReportFile[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  publishedAt DateTime?
+
+  @@index([year, month])
+  @@index([currency])
+  @@index([status])
+  @@map("reports")
+}
+
+/// Archivo original subido (captura o CSV), guardado en la base de datos.
+model ReportFile {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  slot      String // clave del ítem requerido (ver server/lib/catalog.js)
+  filename  String
+  mimeType  String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  @@unique([reportId, slot])
+  @@map("report_files")
+}
+
+/// Versiones del prompt de análisis. Solo una activa por clave.
+model PromptVersion {
+  id        String   @id @default(uuid())
+  key       String // "flow_analysis"
+  version   Int
+  content   String   @db.Text
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([key, version])
+  @@map("prompt_versions")
+}
+
+/// Configuración interna (p. ej. secreto de sesión autogenerado).
+model Setting {
+  key   String @id
+  value String @db.Text
+
+  @@map("settings")
+}
