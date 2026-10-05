@@ -145,7 +145,7 @@ async function callGemini(contents, systemInstruction, tracker) {
   throw new HttpError(502, friendlyGeminiError(lastError));
 }
 
-function friendlyGeminiError(err) {
+export function friendlyGeminiError(err) {
   switch (err?.status) {
     case 402: return 'Gemini: se agotaron los créditos prepagados de la API. Recarga en AI Studio (ai.studio/projects → Billing).';
     case 401:

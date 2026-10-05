@@ -1,4 +1,4 @@
-import { BarChart3, ClipboardCheck, FileText, Gauge, LayoutDashboard, LogIn, LogOut, Plus, Settings } from 'lucide-react';
+import { BarChart3, ClipboardCheck, FileBarChart, FileText, Gauge, LayoutDashboard, LogIn, LogOut, Plus, Settings } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { api } from '../lib/api.js';
@@ -53,6 +53,7 @@ export default function Layout() {
           <nav className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
             <Tab to="/" icon={LayoutDashboard} end>Dashboard</Tab>
             <Tab to="/reportes" icon={FileText}>Reportes</Tab>
+            <Tab to="/resumenes" icon={FileBarChart}>Resúmenes</Tab>
             {canEdit && <Tab to="/admin/nuevo" icon={Plus}>Nuevo análisis</Tab>}
             {canEdit && <Tab to="/admin/revision" icon={ClipboardCheck} badge={pending}>Revisión</Tab>}
             {isAdmin && <Tab to="/admin/consumo" icon={Gauge}>Consumo IA</Tab>}

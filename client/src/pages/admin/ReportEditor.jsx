@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import BulkUpload from '../../components/BulkUpload.jsx';
 import Comments from '../../components/Comments.jsx';
 import FileSlot from '../../components/FileSlot.jsx';
+import { QualityPanel } from '../../components/Quality.jsx';
 import { ErrorBox, Markdown, Select, Spinner, StatusBadge } from '../../components/ui.jsx';
 import { api } from '../../lib/api.js';
 import { useApp } from '../../lib/app-context.jsx';
@@ -219,9 +220,23 @@ function EditReport({ id }) {
 
   const save = (extra = {}) =>
     run(extra.status ? 'status' : 'save', async () => {
+      if (extra.status === 'PUBLISHED' && !(await confirmQuality())) return;
       const { report: r } = await api.patch(`/reports/${id}`, { ...buildPayload(), ...extra });
       load({ ...r, files, reviewer: report.reviewer });
     });
+
+  /** Antes de publicar: si hay avisos de calidad, pide confirmación (no bloquea). */
+  const confirmQuality = async () => {
+    if (dirty) await api.patch(`/reports/${id}`, buildPayload());
+    const q = await api.get(`/reports/${id}/quality`);
+    if (q.ok) return true;
+    const lines = [
+      ...q.outliers.map((f) => `• ${f.message}`),
+      ...(q.missingFiles.length ? [`• Archivos clave sin subir: ${q.missingFiles.join(', ')}`] : []),
+      ...(q.missingMetrics.length ? [`• Métricas sin dato: ${q.missingMetrics.join(', ')}`] : []),
+    ];
+    return window.confirm(`Control de calidad:\n\n${lines.join('\n')}\n\n¿Publicar de todas formas?`);
+  };
 
   const changeReviewer = (reviewerId) =>
     run('reviewer', async () => {
@@ -347,6 +362,8 @@ function EditReport({ id }) {
           </ul>
         </div>
       )}
+
+      <QualityPanel reportId={id} refreshKey={`${report.updatedAt}-${files.length}`} />
 
       <Section step={3} title="Métricas" aside={<span className="text-xs text-muted">Vacío = dato no disponible</span>}>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-6">

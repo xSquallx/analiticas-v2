@@ -20,6 +20,7 @@ model User {
   reviewing      Report[]        @relation("ReportReviewer")
   comments       ReportComment[]
   aiUsage        AiUsage[]
+  summaries      MonthlySummary[]
 
   @@map("users")
 }
@@ -161,4 +162,31 @@ model ReportComment {
 
   @@index([reportId, createdAt])
   @@map("report_comments")
+}
+
+/// Resumen ejecutivo de todos los flujos publicados de un mes y una moneda (generado por IA).
+model MonthlySummary {
+  id       String @id @default(uuid())
+  year     Int
+  month    Int
+  currency String
+
+  /// DRAFT: solo el equipo. PUBLISHED: visible en el enlace público.
+  status  String @default("DRAFT")
+  content String @default("") @db.Text
+  /// Cifras calculadas por el sistema con las que se generó el texto (no las inventa la IA).
+  stats   Json?
+  /// Cantidad de reportes incluidos al generar (para avisar si luego se publican más).
+  reportCount Int @default(0)
+
+  aiModel     String?
+  generatedAt DateTime?
+  createdById String?
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  publishedAt DateTime?
+
+  @@unique([year, month, currency])
+  @@map("monthly_summaries")
 }

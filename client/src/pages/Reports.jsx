@@ -2,6 +2,7 @@ import { FileText } from 'lucide-react';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { FilterBar, applyFilters, useFilters } from '../components/Filters.jsx';
+import { QualityMark, useQualityFlags } from '../components/Quality.jsx';
 import { Empty, ErrorBox, SourceBadge, Spinner, StatusBadge } from '../components/ui.jsx';
 import { metricByKey, useApp } from '../lib/app-context.jsx';
 import { formatMetric, periodLabel } from '../lib/format.js';
@@ -13,6 +14,7 @@ export default function Reports() {
   const { meta, canEdit } = useApp();
   const navigate = useNavigate();
   const { reports, loading, error } = useReports();
+  const qualityFlags = useQualityFlags();
   const [filters, setFilter] = useFilters();
   const filtered = useMemo(() => applyFilters(reports, filters), [reports, filters]);
 
@@ -58,6 +60,7 @@ export default function Reports() {
                       <span className="font-medium text-slate-100">{r.flowName}</span>
                       <SourceBadge source={r.source} />
                       {canEdit && r.status !== 'PUBLISHED' && <StatusBadge status={r.status} />}
+                      <QualityMark flags={qualityFlags[r.id]} />
                     </div>
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-muted">{periodLabel(meta.months, r.month, r.year)}</td>

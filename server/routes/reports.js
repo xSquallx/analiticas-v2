@@ -5,6 +5,7 @@ import { ACCEPTED_MIME, CURRENCIES, MAX_FILE_BYTES, METRICS, REPORT_STATUS, UPLO
 import { prisma } from '../lib/db.js';
 import { familyKey, periodIndex, previousMatches } from '../lib/flowKey.js';
 import { HttpError, notFound, parseOr400 } from '../lib/http.js';
+import { computeOutliers, missingData } from '../lib/quality.js';
 import { analyzeReport, classifyFiles } from '../services/analysis.js';
 import { requireAuth } from '../services/auth.js';
 
@@ -85,6 +86,26 @@ reportsRouter.get('/', async (req, res) => {
     orderBy: [{ year: 'desc' }, { month: 'desc' }, { flowName: 'asc' }],
   });
   res.json({ reports });
+});
+
+// ---------- Control de calidad (equipo) ----------
+
+/** Avisos de valores fuera del rango habitual de todos los reportes: { reportId: [avisos] }. */
+reportsRouter.get('/quality', requireAuth, async (_req, res) => {
+  const all = await prisma.report.findMany({ select: LIST_SELECT });
+  res.json({ flags: Object.fromEntries(computeOutliers(all)) });
+});
+
+/** Revisión de un reporte: valores atípicos + archivos y métricas clave faltantes. */
+reportsRouter.get('/:id/quality', requireAuth, async (req, res) => {
+  const report = await findReportOr404(req, req.params.id);
+  const [sameCurrency, files] = await Promise.all([
+    prisma.report.findMany({ where: { currency: report.currency }, select: LIST_SELECT }),
+    prisma.reportFile.findMany({ where: { reportId: report.id }, select: { slot: true } }),
+  ]);
+  const outliers = computeOutliers(sameCurrency).get(report.id) ?? [];
+  const missing = missingData(report, files);
+  res.json({ outliers, ...missing, ok: !outliers.length && !missing.missingFiles.length && !missing.missingMetrics.length });
 });
 
 reportsRouter.get('/:id', async (req, res) => {

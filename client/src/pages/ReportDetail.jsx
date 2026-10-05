@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import Comments from '../components/Comments.jsx';
 import FlowHistory from '../components/FlowHistory.jsx';
+import { QualityPanel } from '../components/Quality.jsx';
 import { Empty, ErrorBox, Markdown, MetricTile, SourceBadge, Spinner, StatusBadge } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
 import { useApp } from '../lib/app-context.jsx';
@@ -111,6 +112,8 @@ export default function ReportDetail() {
           </div>
         )}
       </div>
+
+      {canEdit && <QualityPanel reportId={report.id} refreshKey={report.updatedAt} />}
 
       <FlowHistory report={report} />
 

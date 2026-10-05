@@ -17,6 +17,8 @@ Flujo de un análisis: **Nuevo análisis (o "Duplicar" de un mes anterior) → s
 - **Subir archivos:** casilla por casilla, pegando capturas con **Ctrl+V** (van a la casilla seleccionada o a la primera vacía) o **todo de una vez**: la IA propone la casilla de cada archivo y el usuario confirma.
 - **Estados:** Borrador → En revisión (con revisor opcional) → Publicado. La pestaña **Revisión** muestra lo pendiente y un contador.
 - **Comentarios internos** por reporte, con el historial de cambios de estado. Solo los ve el equipo.
+- **Control de calidad** (solo equipo): marca "Verificar" en valores fuera del rango habitual (comparando con el historial del mismo flujo o, si no tiene, con los flujos del mes) y avisa de archivos/métricas clave faltantes antes de publicar. Reglas en `server/lib/quality.js`.
+- **Resúmenes mensuales**: por mes y moneda, con cifras calculadas por el sistema y redacción de la IA (solo descriptiva, sin recomendaciones). Los flujos a verificar no entran en el ranking.
 
 ### Reglas de datos
 - Una métrica vacía significa **dato no disponible**. La IA tiene prohibido estimar; si no ve un dato, devuelve `null` y deja un aviso.
@@ -33,7 +35,8 @@ server/            API (Express 5 + Prisma + Postgres)
   config.js        variables de entorno validadas
   lib/catalog.js   monedas, meses, métricas y casillas de archivos (fuente única)
   routes/          auth, reports, users, admin
-  services/        analysis (Gemini), usage (consumo/costo), csv, prompts, auth, legacyImport
+  services/        analysis (Gemini), summary (resumen mensual), usage (consumo/costo), csv, prompts, auth, legacyImport
+  lib/quality.js   control de calidad (valores atípicos, datos faltantes)
   prompts/         prompt por defecto (v1)
 prisma/            schema + migraciones
 client/            React 19 + Vite + Tailwind 4 + React Router

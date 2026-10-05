@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { Bar, BarChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { FilterBar, applyFilters, useFilters } from '../components/Filters.jsx';
+import { QualityMark, useQualityFlags } from '../components/Quality.jsx';
 import { Empty, ErrorBox, Select, SourceBadge, Spinner } from '../components/ui.jsx';
 import { metricByKey, useApp } from '../lib/app-context.jsx';
 import { average, formatMetric, formatNumber, median, periodLabel } from '../lib/format.js';
@@ -38,6 +39,7 @@ function ChartTooltip({ active, payload, currency }) {
 export default function Dashboard() {
   const { meta } = useApp();
   const { reports, loading, error } = useReports();
+  const qualityFlags = useQualityFlags();
   const [filters, setFilter] = useFilters({ currency: meta.currencies[0] });
   const [rankKey, setRankKey] = useState('avgNetRevenue');
   const [best, setBest] = useState(true);
@@ -151,7 +153,7 @@ export default function Dashboard() {
                           <Link to={`/reportes/${r.id}`} className="font-medium text-slate-200 hover:text-indigo-300">
                             {r.flowName}
                           </Link>{' '}
-                          <SourceBadge source={r.source} />
+                          <SourceBadge source={r.source} /> <QualityMark flags={qualityFlags[r.id]} />
                         </td>
                         <td className="whitespace-nowrap py-2 pr-3 text-muted">{periodLabel(meta.months, r.month, r.year)}</td>
                         <td className="py-2 text-right font-semibold tabular-nums text-white">{formatMetric(r[rankKey], rankMetric, cur)}</td>

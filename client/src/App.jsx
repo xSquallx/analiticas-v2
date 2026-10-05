@@ -6,6 +6,8 @@ import Dashboard from './pages/Dashboard.jsx';
 import Login from './pages/Login.jsx';
 import ReportDetail from './pages/ReportDetail.jsx';
 import Reports from './pages/Reports.jsx';
+import Summaries from './pages/Summaries.jsx';
+import SummaryDetail from './pages/SummaryDetail.jsx';
 import ReportEditor from './pages/admin/ReportEditor.jsx';
 import Settings from './pages/admin/Settings.jsx';
 import ReviewInbox from './pages/admin/ReviewInbox.jsx';
@@ -32,6 +34,8 @@ export default function App() {
         <Route index element={<Dashboard />} />
         <Route path="reportes" element={<Reports />} />
         <Route path="reportes/:id" element={<ReportDetail />} />
+        <Route path="resumenes" element={<Summaries />} />
+        <Route path="resumenes/:id" element={<SummaryDetail />} />
         <Route path="login" element={<Login />} />
         <Route path="admin/nuevo" element={<MembersOnly><ReportEditor /></MembersOnly>} />
         <Route path="admin/reportes/:id" element={<MembersOnly><ReportEditor /></MembersOnly>} />

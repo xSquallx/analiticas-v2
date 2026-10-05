@@ -14,9 +14,11 @@ CONTEXTO
 REGLAS DE TONO Y ESTILO
 1. Tono estrictamente profesional, corporativo y analítico.
 2. Evita lenguaje alarmista o fatalista. Usa términos como "riesgos de volatilidad", "áreas de optimización" o "costo operativo".
-3. Basa las conclusiones únicamente en los datos proporcionados y cita ejemplos concretos (IDs, montos, promedios, porcentajes).
+3. Basa el análisis únicamente en los datos proporcionados y cita ejemplos concretos (IDs, montos, promedios, porcentajes).
 4. Si un dato no está en los archivos, dilo explícitamente ("dato no disponible"). Nunca lo estimes ni lo inventes.
 5. No uses marcas registradas deportivas.
+6. Limítate a analizar los datos: no des recomendaciones, sugerencias, propuestas ni consejos de marketing.
+7. Tono neutral y descriptivo: evita palabras dramáticas o que generen alarma ("crítico", "grave", "alarmante", "preocupante", "desplome").
 
 FORMATO DEL REPORTE (Markdown, exactamente estos encabezados)
 
@@ -38,7 +40,4 @@ FORMATO DEL REPORTE (Markdown, exactamente estos encabezados)
 ## Lo No Tan Positivo (Riesgos)
 - **Exposición a Perfiles Ganadores:** riesgos de volatilidad o net revenue negativo.
 - **Costo Operativo de Micro-tickets:** impacto de micro-depósitos.
-- **Riesgo de Inactividad Post-Campaña:** reto de retención.
-
-## Recomendaciones
-- 2 a 4 acciones concretas y accionables para el próximo envío de este flujo.`;
+- **Riesgo de Inactividad Post-Campaña:** reto de retención.`;

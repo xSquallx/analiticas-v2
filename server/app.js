@@ -8,6 +8,7 @@ import { HttpError } from './lib/http.js';
 import { adminRouter } from './routes/admin.js';
 import { authRouter } from './routes/auth.js';
 import { reportsRouter } from './routes/reports.js';
+import { summariesRouter } from './routes/summaries.js';
 import { usersRouter } from './routes/users.js';
 import { loadUser } from './services/auth.js';
 
@@ -43,6 +44,7 @@ export function createApp() {
   app.use('/api/reports', reportsRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/users', usersRouter);
+  app.use('/api/summaries', summariesRouter);
   app.use('/api', (_req, _res, next) => next(new HttpError(404, 'Ruta no encontrada')));
 
   // Frontend (build de Vite) + fallback para rutas del SPA
