@@ -113,7 +113,8 @@ export async function usageSummary(year, month) {
     totals: {
       analyses: ok.length,
       failed: analyses.length - ok.length,
-      tests: rows.length - analyses.length,
+      tests: rows.filter((r) => r.kind === 'TEST').length,
+      classifications: rows.filter((r) => r.kind === 'CLASSIFY').length,
       inputTokens: sum(rows, 'inputTokens'),
       outputTokens: sum(rows, 'outputTokens'),
       totalTokens: sum(rows, 'totalTokens'),

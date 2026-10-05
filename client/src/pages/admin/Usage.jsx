@@ -71,7 +71,7 @@ export default function Usage() {
       {data && (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <Stat label="Análisis realizados" value={data.totals.analyses} sub={data.totals.failed ? `${data.totals.failed} fallidos · ${data.totals.tests} pruebas` : `${data.totals.tests} pruebas de conexión`} />
+            <Stat label="Análisis realizados" value={data.totals.analyses} sub={[data.totals.failed && `${data.totals.failed} fallidos`, `${data.totals.classifications} clasificaciones`, `${data.totals.tests} pruebas`].filter(Boolean).join(' · ')} />
             <Stat label="Costo estimado" value={usd(data.totals.costUsd)} sub={`${monthName} ${data.year} · USD`} />
             <Stat label="Costo por análisis" value={usd(data.totals.avgCostPerAnalysis)} sub={data.totals.avgSeconds ? `promedio · ${formatNumber(Math.round(data.totals.avgSeconds))} s por análisis` : 'promedio'} />
             <Stat label="Tokens usados" value={tokens(data.totals.totalTokens)} sub={`${tokens(data.totals.inputTokens)} entrada · ${tokens(data.totals.outputTokens)} salida`} />
@@ -155,6 +155,8 @@ export default function Usage() {
                         <td className="py-2 pr-3">
                           {r.kind === 'TEST' ? (
                             <span className="text-muted">Prueba de conexión</span>
+                          ) : r.kind === 'CLASSIFY' ? (
+                            <span className="text-muted">Clasificación de archivos (subida en bloque)</span>
                           ) : r.reportId ? (
                             <Link to={`/admin/reportes/${r.reportId}`} className="text-slate-200 hover:text-indigo-300">{r.reportLabel}</Link>
                           ) : (

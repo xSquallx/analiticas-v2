@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 const ACCEPT = 'image/png,image/jpeg,image/webp,.csv,text/csv';
 
 /** Casilla de carga para uno de los archivos del flujo (captura o CSV). */
-export default function FileSlot({ index, total, slot, file, reportId, onUpload, onRemove }) {
+export default function FileSlot({ index, total, slot, file, reportId, onUpload, onRemove, active, onActivate, uploading }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -34,6 +34,7 @@ export default function FileSlot({ index, total, slot, file, reportId, onUpload,
 
   return (
     <div
+      onClick={onActivate}
       onDragOver={(e) => {
         e.preventDefault();
         setDragOver(true);
@@ -46,7 +47,7 @@ export default function FileSlot({ index, total, slot, file, reportId, onUpload,
       }}
       className={`flex flex-col gap-3 rounded-2xl border-2 p-3 transition-colors ${
         dragOver ? 'border-brand bg-brand/10' : file ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-line bg-panel'
-      }`}
+      } ${active ? 'ring-2 ring-brand ring-offset-2 ring-offset-bg' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -62,7 +63,7 @@ export default function FileSlot({ index, total, slot, file, reportId, onUpload,
         disabled={busy}
         className="relative flex aspect-video items-center justify-center overflow-hidden rounded-lg border border-dashed border-line bg-bg text-xs text-muted hover:border-brand hover:text-indigo-300"
       >
-        {busy ? (
+        {busy || uploading ? (
           <Loader2 className="h-6 w-6 animate-spin" />
         ) : src ? (
           <img src={src} alt={slot.label} className="h-full w-full object-cover" />
@@ -73,7 +74,7 @@ export default function FileSlot({ index, total, slot, file, reportId, onUpload,
         ) : (
           <span className="flex flex-col items-center gap-1">
             <Upload className="h-6 w-6" /> Subir o arrastrar
-            <span className="text-[10px] text-slate-600">PNG, JPG o CSV</span>
+            <span className="text-[10px] text-slate-600">{active ? 'o pega con Ctrl+V' : 'PNG, JPG o CSV'}</span>
           </span>
         )}
       </button>

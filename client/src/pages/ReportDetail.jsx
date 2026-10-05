@@ -1,6 +1,7 @@
-import { ArrowLeft, Check, Edit3, Link2, Printer, Trash2 } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Edit3, Link2, Printer, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import Comments from '../components/Comments.jsx';
 import FlowHistory from '../components/FlowHistory.jsx';
 import { Empty, ErrorBox, Markdown, MetricTile, SourceBadge, Spinner, StatusBadge } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
@@ -63,6 +64,9 @@ export default function ReportDetail() {
           </button>
           {canEdit && (
             <>
+              <Link to={`/admin/nuevo?from=${report.id}`} className="btn-ghost" title="Crear el análisis de otro mes con el mismo nombre y moneda">
+                <Copy className="h-4 w-4" /> Duplicar
+              </Link>
               <Link to={`/admin/reportes/${report.id}`} className="btn-ghost">
                 <Edit3 className="h-4 w-4" /> Editar
               </Link>
@@ -84,6 +88,7 @@ export default function ReportDetail() {
           {periodLabel(meta.months, report.month, report.year)} · <span className="text-indigo-300">{report.currency}</span>
           {report.analyzedAt && <> · analizado el {formatDate(report.analyzedAt)}</>}
           {canEdit && report.createdBy && <> · creado por {report.createdBy.name}</>}
+          {canEdit && report.status === 'IN_REVIEW' && <> · revisa: {report.reviewer?.name ?? 'sin asignar'}</>}
         </p>
 
         <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3">
@@ -115,10 +120,12 @@ export default function ReportDetail() {
 
       {canEdit && report.notes && (
         <div className="card no-print p-5">
-          <p className="label">Notas internas (solo admins)</p>
+          <p className="label">Notas internas (solo el equipo)</p>
           <p className="whitespace-pre-wrap text-sm text-slate-300">{report.notes}</p>
         </div>
       )}
+
+      {canEdit && <Comments reportId={report.id} refreshKey={report.updatedAt} />}
     </div>
   );
 }

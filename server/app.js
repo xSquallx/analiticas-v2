@@ -51,6 +51,7 @@ export function createApp() {
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
+    if (err?.code === 'LIMIT_FILE_COUNT' || err?.code === 'LIMIT_UNEXPECTED_FILE') err = new HttpError(400, 'Máximo 12 archivos a la vez');
     if (err?.code === 'LIMIT_FILE_SIZE') err = new HttpError(413, `El archivo supera ${MAX_FILE_BYTES / 1024 / 1024} MB`);
     if (err?.code === 'P2025') err = new HttpError(404, 'Registro no encontrado');
     const status = err.status ?? 500;

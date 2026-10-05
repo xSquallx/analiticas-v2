@@ -1,6 +1,8 @@
-import { AlertTriangle, ArrowRight, Eye, Loader2, Save, Send, Sparkles, Undo2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { AlertTriangle, ArrowRight, CheckCheck, ClipboardPaste, Copy, Eye, Loader2, Save, Send, Sparkles, Undo2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import BulkUpload from '../../components/BulkUpload.jsx';
+import Comments from '../../components/Comments.jsx';
 import FileSlot from '../../components/FileSlot.jsx';
 import { ErrorBox, Markdown, Select, Spinner, StatusBadge } from '../../components/ui.jsx';
 import { api } from '../../lib/api.js';
@@ -29,8 +31,8 @@ function MetaFields({ value, onChange }) {
   const years = Array.from({ length: 6 }, (_, i) => String(now.getFullYear() - 3 + i));
   const set = (k) => (v) => onChange({ ...value, [k]: v });
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-      <label className="md:col-span-1">
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
+      <label className="md:col-span-2">
         <span className="label">Nombre del flujo</span>
         <input className="input" value={value.flowName} placeholder="Ej. Birthday PD JLC" onChange={(e) => set('flowName')(e.target.value)} />
       </label>
@@ -48,13 +50,31 @@ const metaPayload = (m, currencies) => ({
   currency: m.currency || currencies[0],
 });
 
-/** Paso 1 para un análisis nuevo: crea el borrador y redirige al editor completo. */
+/**
+ * Paso 1 para un análisis nuevo: crea el borrador y redirige al editor completo.
+ * Con ?from=<id> duplica un flujo: mismo nombre y moneda, mes siguiente.
+ */
 function NewReport() {
   const { meta } = useApp();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const fromId = params.get('from');
   const [form, setForm] = useState(EMPTY_META);
+  const [source, setSource] = useState(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!fromId) return;
+    api
+      .get(`/reports/${fromId}`)
+      .then(({ report: r }) => {
+        const next = r.month === 12 ? { month: 1, year: r.year + 1 } : { month: r.month + 1, year: r.year };
+        setSource(r);
+        setForm({ flowName: r.flowName, currency: r.currency, month: String(next.month), year: String(next.year) });
+      })
+      .catch((e) => setError(`No se pudo cargar el flujo a duplicar: ${e.message}`));
+  }, [fromId]);
 
   const create = async () => {
     setBusy(true);
@@ -71,6 +91,15 @@ function NewReport() {
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <h1 className="text-2xl font-bold text-white">Nuevo análisis</h1>
+      {source && (
+        <div className="flex items-start gap-3 rounded-xl border border-brand/40 bg-brand/10 px-4 py-3 text-sm text-indigo-100">
+          <Copy className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            Duplicando <strong>{source.flowName}</strong> ({meta.months[source.month - 1]} {source.year}). Revisa el mes y, si el nombre lleva fecha, ajústalo.
+            Solo se copian el nombre y la moneda: los archivos y el análisis empiezan vacíos.
+          </p>
+        </div>
+      )}
       <Section step={1} title="Información del flujo">
         <MetaFields value={form} onChange={setForm} />
         <div className="mt-4">
@@ -105,8 +134,46 @@ function EditReport({ id }) {
   const [form, setForm] = useState(null);
   const [saved, setSaved] = useState(null);
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(null); // 'save' | 'analyze' | 'publish'
+  const [busy, setBusy] = useState(null); // 'save' | 'analyze' | 'status'
   const [tab, setTab] = useState('preview');
+  const [activeSlot, setActiveSlot] = useState(null);
+  const [uploadingSlot, setUploadingSlot] = useState(null);
+  const [reviewers, setReviewers] = useState([]);
+
+  useEffect(() => {
+    api.get('/reports/review/reviewers').then((d) => setReviewers(d.users)).catch(() => {});
+  }, []);
+
+  // Ctrl+V: pega una captura en la casilla seleccionada (o en la primera vacía).
+  // Se usa un ref para que el listener siempre vea el estado actual.
+  const pasteRef = useRef(null);
+  pasteRef.current = (e) => {
+    const target = e.target;
+    if (target instanceof HTMLElement && target.closest('input, textarea, [contenteditable="true"]')) return;
+    const item = [...(e.clipboardData?.items ?? [])].find((i) => i.kind === 'file');
+    const file = item?.getAsFile();
+    if (!file || !report) return;
+    e.preventDefault();
+    const empty = meta.uploadSlots.filter((s) => !files.some((f) => f.slot === s.key));
+    const slot = activeSlot ?? empty[0]?.key;
+    if (!slot) {
+      setError('Todas las casillas tienen archivo. Haz clic en una para reemplazar su contenido y vuelve a pegar.');
+      return;
+    }
+    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const named = new File([file], `captura-${slot}-${Date.now()}.${ext}`, { type: file.type });
+    setUploadingSlot(slot);
+    upload(slot, named).then((ok) => {
+      setUploadingSlot(null);
+      // Avanza a la siguiente casilla vacía para pegar en cadena
+      if (ok) setActiveSlot(empty.find((s) => s.key !== slot)?.key ?? null);
+    });
+  };
+  useEffect(() => {
+    const onPaste = (e) => pasteRef.current?.(e);
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, []);
 
   const load = (r) => {
     setReport(r);
@@ -151,9 +218,16 @@ function EditReport({ id }) {
   };
 
   const save = (extra = {}) =>
-    run(extra.status ? 'publish' : 'save', async () => {
+    run(extra.status ? 'status' : 'save', async () => {
       const { report: r } = await api.patch(`/reports/${id}`, { ...buildPayload(), ...extra });
-      load({ ...r, files });
+      load({ ...r, files, reviewer: report.reviewer });
+    });
+
+  const changeReviewer = (reviewerId) =>
+    run('reviewer', async () => {
+      const { report: r } = await api.patch(`/reports/${id}`, { reviewerId: reviewerId || null });
+      // Solo cambia el revisor; se conservan las ediciones sin guardar del formulario
+      setReport((prev) => ({ ...prev, reviewerId: r.reviewerId, reviewer: reviewers.find((u) => u.id === r.reviewerId) ?? null }));
     });
 
   const analyze = () =>
@@ -165,17 +239,19 @@ function EditReport({ id }) {
       setTab('preview');
     });
 
-  const upload = async (slot, file) => {
+  async function upload(slot, file) {
     setError('');
     const body = new FormData();
     body.append('file', file);
     try {
       const { file: saved } = await api.put(`/reports/${id}/files/${slot}`, body);
       setFiles((prev) => [...prev.filter((f) => f.slot !== slot), saved]);
+      return true;
     } catch (e) {
       setError(e.message);
+      return false;
     }
-  };
+  }
 
   const removeFile = async (slot) => {
     await api.del(`/reports/${id}/files/${slot}`);
@@ -184,14 +260,32 @@ function EditReport({ id }) {
 
   const setMetric = (key, v) => setForm((f) => ({ ...f, metrics: { ...f.metrics, [key]: v } }));
   const warnings = Array.isArray(report.aiWarnings) ? report.aiWarnings : [];
-  const published = report.status === 'PUBLISHED';
+  const status = report.status;
+  const hasAnalysis = !!form.analysis.trim();
+  const noAnalysisTitle = hasAnalysis ? '' : 'Genera o escribe el análisis primero';
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-28">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-bold text-white">{report.flowName}</h1>
-        <StatusBadge status={report.status} />
+        <StatusBadge status={status} />
         {report.source === 'V1' && <span className="text-xs text-muted">Importado de V1</span>}
+        <div className="ml-auto flex flex-wrap items-end gap-2">
+          {status !== 'PUBLISHED' && (
+            <label className="w-52">
+              <span className="label">Revisor</span>
+              <select className="input" value={report.reviewerId ?? ''} onChange={(e) => changeReviewer(e.target.value)} disabled={busy === 'reviewer'}>
+                <option value="">Sin asignar</option>
+                {reviewers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <Link to={`/admin/nuevo?from=${id}`} className="btn-ghost" title="Crear el análisis de otro mes con el mismo nombre y moneda">
+            <Copy className="h-4 w-4" /> Duplicar para otro mes
+          </Link>
+        </div>
       </div>
 
       <Section step={1} title="Información del flujo">
@@ -203,6 +297,11 @@ function EditReport({ id }) {
         title="Archivos de Optimove"
         aside={<span className="text-sm text-muted">{files.length}/{meta.uploadSlots.length} cargados</span>}
       >
+        <BulkUpload files={files} onUpload={upload} />
+        <p className="mb-3 mt-4 flex items-center gap-2 text-xs text-muted">
+          <ClipboardPaste className="h-4 w-4 shrink-0" />
+          Copia una captura (Win+Shift+S) y pégala con <kbd className="rounded border border-line px-1">Ctrl+V</kbd>: va a la casilla seleccionada (clic en ella) o a la primera vacía, y luego pasa a la siguiente.
+        </p>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {meta.uploadSlots.map((slot, i) => (
             <FileSlot
@@ -214,6 +313,9 @@ function EditReport({ id }) {
               file={files.find((f) => f.slot === slot.key)}
               onUpload={upload}
               onRemove={removeFile}
+              active={activeSlot === slot.key}
+              onActivate={() => setActiveSlot(slot.key)}
+              uploading={uploadingSlot === slot.key}
             />
           ))}
         </div>
@@ -291,6 +393,8 @@ function EditReport({ id }) {
         </label>
       </Section>
 
+      <Comments reportId={id} refreshKey={`${status}-${report.updatedAt}`} />
+
       <div className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-line bg-panel/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3 px-4 py-3">
           <div className="min-w-0 flex-1">
@@ -302,18 +406,35 @@ function EditReport({ id }) {
           <button className="btn-ghost" onClick={() => save()} disabled={!!busy || !dirty}>
             {busy === 'save' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Guardar
           </button>
-          {published ? (
+          {status === 'PUBLISHED' && (
             <button className="btn-ghost" onClick={() => save({ status: 'DRAFT' })} disabled={!!busy}>
               <Undo2 className="h-4 w-4" /> Pasar a borrador
             </button>
-          ) : (
+          )}
+          {status === 'DRAFT' && (
+            <button
+              className="btn-ghost"
+              onClick={() => save({ status: 'IN_REVIEW' })}
+              disabled={!!busy || !hasAnalysis}
+              title={noAnalysisTitle || (report.reviewer ? `Lo revisará ${report.reviewer.name}` : 'Elige un revisor arriba (opcional)')}
+            >
+              <Send className="h-4 w-4" /> Enviar a revisión
+            </button>
+          )}
+          {status === 'IN_REVIEW' && (
+            <button className="btn-ghost" onClick={() => save({ status: 'DRAFT' })} disabled={!!busy} title="Devolver a quien lo preparó para que lo corrija">
+              <Undo2 className="h-4 w-4" /> Devolver a borrador
+            </button>
+          )}
+          {status !== 'PUBLISHED' && (
             <button
               className="btn-primary"
               onClick={() => save({ status: 'PUBLISHED' }).then((ok) => ok && navigate(`/reportes/${id}`))}
-              disabled={!!busy || !form.analysis.trim()}
-              title={!form.analysis.trim() ? 'Genera o escribe el análisis antes de publicar' : ''}
+              disabled={!!busy || !hasAnalysis}
+              title={noAnalysisTitle}
             >
-              {busy === 'publish' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Guardar y publicar
+              {busy === 'status' ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCheck className="h-4 w-4" />}
+              {status === 'IN_REVIEW' ? 'Aprobar y publicar' : 'Publicar'}
             </button>
           )}
         </div>

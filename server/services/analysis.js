@@ -173,6 +173,84 @@ export async function testGemini({ user } = {}) {
   }
 }
 
+const CLASSIFY_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    assignments: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          index: { type: Type.INTEGER },
+          slot: { type: Type.STRING, enum: [...UPLOAD_SLOTS.map((s) => s.key), 'unknown'] },
+          reason: { type: Type.STRING },
+        },
+        required: ['index', 'slot', 'reason'],
+      },
+    },
+  },
+  required: ['assignments'],
+};
+
+/**
+ * Propone a qué casilla corresponde cada archivo subido en bloque.
+ * No guarda nada: el usuario confirma o corrige antes de subir.
+ * files: [{ name, mimeType, buffer }]
+ */
+export async function classifyFiles(files, { user } = {}) {
+  if (!ai) throw new HttpError(503, 'Falta configurar GEMINI_API_KEY en el servidor');
+
+  const parts = [{ text: 'Archivos a clasificar:' }];
+  files.forEach((f, i) => {
+    if (f.mimeType.startsWith('image/')) {
+      parts.push({ text: `\n[${i}] Captura "${f.name}"` });
+      parts.push({ inlineData: { mimeType: f.mimeType, data: f.buffer.toString('base64') } });
+    } else {
+      const head = f.buffer.toString('utf8').replace(/^﻿/, '').split(/\r?\n/).slice(0, 15).join('\n');
+      parts.push({ text: `\n[${i}] CSV "${f.name}" (primeras líneas):\n${head}` });
+    }
+  });
+
+  const instructions = `Eres un asistente que ordena archivos exportados de Optimove (capturas de pantalla y CSV).
+Asigna cada archivo (por su índice) a UNA de estas casillas:
+${UPLOAD_SLOTS.map((s) => `- ${s.key}: ${s.label}${s.hint ? ` (${s.hint})` : ''}`).join('\n')}
+- unknown: no corresponde a ninguna o no se puede saber
+
+Pistas: busca el título del KPI en la captura (por ejemplo "Avg. Total Net Revenue"), el nombre del archivo y las columnas del CSV.
+Un CSV con una lista de IDs de clientes es depositor_ids. Si una captura muestra varios KPIs, elige el más destacado.
+En "reason" explica en español, en pocas palabras, por qué.`;
+
+  const tracker = new UsageTracker('CLASSIFY', { user });
+  try {
+    const response = await ai.models.generateContent({
+      model: config.GEMINI_MODEL,
+      contents: [{ role: 'user', parts }],
+      config: { systemInstruction: instructions, responseMimeType: 'application/json', responseSchema: CLASSIFY_SCHEMA, temperature: 0 },
+    });
+    tracker.add(response.usageMetadata);
+    const { assignments = [] } = parseJson(response.text ?? '');
+    await tracker.save({ success: true });
+
+    // Una casilla por archivo: si la IA repite una casilla, solo la conserva el primero.
+    const used = new Set();
+    return files.map((f, i) => {
+      const a = assignments.find((x) => x.index === i);
+      let slot = a && a.slot !== 'unknown' && UPLOAD_SLOTS.some((s) => s.key === a.slot) ? a.slot : null;
+      let reason = a?.reason ?? 'Sin sugerencia';
+      if (slot && used.has(slot)) {
+        reason = `${reason} (otro archivo ya ocupa esa casilla)`;
+        slot = null;
+      }
+      if (slot) used.add(slot);
+      return { index: i, name: f.name, slot, reason };
+    });
+  } catch (err) {
+    const message = err instanceof HttpError ? err.message : friendlyGeminiError(err);
+    await tracker.save({ success: false, error: message });
+    throw err instanceof HttpError ? err : new HttpError(502, message);
+  }
+}
+
 /**
  * Ejecuta el análisis de un reporte con sus archivos.
  * Devuelve métricas (null = no disponible), avisos y el texto en Markdown.

@@ -16,8 +16,10 @@ model User {
   role         String   @default("EDITOR")
   createdAt    DateTime @default(now())
 
-  reports Report[]
-  aiUsage AiUsage[]
+  reports        Report[]        @relation("ReportCreatedBy")
+  reviewing      Report[]        @relation("ReportReviewer")
+  comments       ReportComment[]
+  aiUsage        AiUsage[]
 
   @@map("users")
 }
@@ -30,7 +32,7 @@ model Report {
   year     Int
   currency String // VES/USD, CLP, PEN, MXN
 
-  /// DRAFT: solo visible para admins. PUBLISHED: visible en el enlace público.
+  /// DRAFT y IN_REVIEW: solo visibles para el equipo. PUBLISHED: visible en el enlace público.
   status String @default("DRAFT")
   /// V2 = creado en este sistema. V1 = importado del sistema anterior.
   source String @default("V2")
@@ -59,8 +61,13 @@ model Report {
   analyzedAt    DateTime?
 
   createdById String?
-  createdBy   User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdBy   User?        @relation("ReportCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  /// Quién debe revisar el reporte cuando está EN REVISIÓN (opcional).
+  reviewerId  String?
+  reviewer    User?        @relation("ReportReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  submittedAt DateTime?
   files       ReportFile[]
+  comments    ReportComment[]
   aiUsage     AiUsage[]
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
@@ -69,6 +76,7 @@ model Report {
   @@index([year, month])
   @@index([currency])
   @@index([status])
+  @@index([reviewerId])
   @@map("reports")
 }
 
@@ -136,4 +144,21 @@ model AiUsage {
 
   @@index([createdAt])
   @@map("ai_usage")
+}
+
+/// Comentarios internos del equipo y eventos (cambios de estado) de un reporte.
+model ReportComment {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userLabel String? // copia del nombre por si se elimina el usuario
+  /// COMMENT = escrito por alguien. EVENT = generado por el sistema (envío a revisión, publicación…).
+  kind      String   @default("COMMENT")
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([reportId, createdAt])
+  @@map("report_comments")
 }

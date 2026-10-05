@@ -1,8 +1,10 @@
-import { BarChart3, FileText, Gauge, LayoutDashboard, LogIn, LogOut, Plus, Settings } from 'lucide-react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router';
+import { BarChart3, ClipboardCheck, FileText, Gauge, LayoutDashboard, LogIn, LogOut, Plus, Settings } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
+import { api } from '../lib/api.js';
 import { useApp } from '../lib/app-context.jsx';
 
-function Tab({ to, icon: Icon, children, end }) {
+function Tab({ to, icon: Icon, children, end, badge }) {
   return (
     <NavLink
       to={to}
@@ -15,6 +17,7 @@ function Tab({ to, icon: Icon, children, end }) {
     >
       <Icon className="h-4 w-4" />
       {children}
+      {badge > 0 && <span className="rounded-full bg-sky-500 px-1.5 text-[11px] font-bold leading-4 text-white">{badge}</span>}
     </NavLink>
   );
 }
@@ -22,6 +25,17 @@ function Tab({ to, icon: Icon, children, end }) {
 export default function Layout() {
   const { user, canEdit, isAdmin, logout } = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [pending, setPending] = useState(0);
+
+  // Pendientes de revisión para mí (asignados a mí + sin revisor). Se actualiza al cambiar de página.
+  useEffect(() => {
+    if (!user) {
+      setPending(0);
+      return;
+    }
+    api.get('/reports/review/inbox').then((d) => setPending(d.mine + d.unassigned)).catch(() => {});
+  }, [user, location.pathname]);
 
   return (
     <div className="min-h-screen">
@@ -40,6 +54,7 @@ export default function Layout() {
             <Tab to="/" icon={LayoutDashboard} end>Dashboard</Tab>
             <Tab to="/reportes" icon={FileText}>Reportes</Tab>
             {canEdit && <Tab to="/admin/nuevo" icon={Plus}>Nuevo análisis</Tab>}
+            {canEdit && <Tab to="/admin/revision" icon={ClipboardCheck} badge={pending}>Revisión</Tab>}
             {isAdmin && <Tab to="/admin/consumo" icon={Gauge}>Consumo IA</Tab>}
             {canEdit && <Tab to="/admin/ajustes" icon={Settings}>Ajustes</Tab>}
           </nav>

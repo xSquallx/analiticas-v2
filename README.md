@@ -12,7 +12,11 @@ Sistema para analizar flujos/campañas de **Optimove** con **Gemini**. Se suben 
 
 Los usuarios se crean desde **Ajustes**. Si un administrador cambia la contraseña de alguien (o la persona la cambia), se cierran sus sesiones abiertas.
 
-Flujo de un análisis: **Nuevo análisis → datos del flujo → subir archivos (8 casillas) → Analizar con IA → revisar métricas y avisos → Guardar y publicar.**
+Flujo de un análisis: **Nuevo análisis (o "Duplicar" de un mes anterior) → subir archivos → Analizar con IA → revisar métricas y avisos → Enviar a revisión → Aprobar y publicar.**
+
+- **Subir archivos:** casilla por casilla, pegando capturas con **Ctrl+V** (van a la casilla seleccionada o a la primera vacía) o **todo de una vez**: la IA propone la casilla de cada archivo y el usuario confirma.
+- **Estados:** Borrador → En revisión (con revisor opcional) → Publicado. La pestaña **Revisión** muestra lo pendiente y un contador.
+- **Comentarios internos** por reporte, con el historial de cambios de estado. Solo los ve el equipo.
 
 ### Reglas de datos
 - Una métrica vacía significa **dato no disponible**. La IA tiene prohibido estimar; si no ve un dato, devuelve `null` y deja un aviso.

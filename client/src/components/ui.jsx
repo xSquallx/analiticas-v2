@@ -31,12 +31,15 @@ export function Empty({ icon: Icon, title, children }) {
   );
 }
 
+const STATUS_STYLE = {
+  DRAFT: ['Borrador', 'bg-amber-500/10 text-amber-300'],
+  IN_REVIEW: ['En revisión', 'bg-sky-500/10 text-sky-300'],
+  PUBLISHED: ['Publicado', 'bg-emerald-500/10 text-emerald-300'],
+};
+
 export function StatusBadge({ status }) {
-  return status === 'PUBLISHED' ? (
-    <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold text-emerald-300">Publicado</span>
-  ) : (
-    <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-300">Borrador</span>
-  );
+  const [label, cls] = STATUS_STYLE[status] ?? STATUS_STYLE.DRAFT;
+  return <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`}>{label}</span>;
 }
 
 export function SourceBadge({ source }) {

@@ -5,12 +5,18 @@ import { ACCEPTED_MIME, CURRENCIES, MAX_FILE_BYTES, METRICS, REPORT_STATUS, UPLO
 import { prisma } from '../lib/db.js';
 import { familyKey, periodIndex, previousMatches } from '../lib/flowKey.js';
 import { HttpError, notFound, parseOr400 } from '../lib/http.js';
-import { analyzeReport } from '../services/analysis.js';
+import { analyzeReport, classifyFiles } from '../services/analysis.js';
 import { requireAuth } from '../services/auth.js';
 
 export const reportsRouter = Router();
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_BYTES, files: 1 } });
+const uploadMany = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_FILE_BYTES, files: 12 } });
+
+/** Algunos navegadores en Windows envían los CSV como application/octet-stream. */
+function normalizeMime(file) {
+  return /\.csv$/i.test(file.originalname) && !ACCEPTED_MIME.test(file.mimetype) ? 'text/csv' : file.mimetype;
+}
 
 const SLOT_KEYS = UPLOAD_SLOTS.map((s) => s.key);
 const METRIC_SELECT = Object.fromEntries(METRICS.map((m) => [m.key, true]));
@@ -37,6 +43,7 @@ const updateSchema = metaSchema.partial().extend({
   analysis: z.string().max(100_000).optional(),
   notes: z.string().max(10_000).nullable().optional(),
   status: z.enum(REPORT_STATUS).optional(),
+  reviewerId: z.string().uuid().nullable().optional(),
 });
 
 const listQuerySchema = z.object({
@@ -83,7 +90,11 @@ reportsRouter.get('/', async (req, res) => {
 reportsRouter.get('/:id', async (req, res) => {
   const report = await findReportOr404(req, req.params.id, {
     include: req.user
-      ? { files: { select: { slot: true, filename: true, mimeType: true, size: true, createdAt: true } }, createdBy: { select: { name: true } } }
+      ? {
+          files: { select: { slot: true, filename: true, mimeType: true, size: true, createdAt: true } },
+          createdBy: { select: { name: true } },
+          reviewer: { select: { id: true, name: true } },
+        }
       : undefined,
   });
   if (!req.user) {
@@ -91,6 +102,7 @@ reportsRouter.get('/:id', async (req, res) => {
     delete report.notes;
     delete report.aiWarnings;
     delete report.createdById;
+    delete report.reviewerId;
   }
   res.json({ report: toApi(report) });
 });
@@ -111,7 +123,71 @@ reportsRouter.get('/:id/history', async (req, res) => {
   res.json({ items: items.map((r) => ({ ...r, previousId: prev.get(r.id)?.id ?? null })) });
 });
 
+// ---------- Revisión y comentarios (equipo) ----------
+
+/** Reportes en revisión: los asignados a mí, los sin revisor y los demás. */
+reportsRouter.get('/review/inbox', requireAuth, async (req, res) => {
+  const items = await prisma.report.findMany({
+    where: { status: 'IN_REVIEW' },
+    select: {
+      id: true, flowName: true, month: true, year: true, currency: true, submittedAt: true, reviewerId: true,
+      reviewer: { select: { name: true } },
+      createdBy: { select: { name: true } },
+      _count: { select: { comments: { where: { kind: 'COMMENT' } } } },
+    },
+    orderBy: { submittedAt: 'asc' },
+  });
+  const list = items.map(({ _count, ...r }) => ({ ...r, commentCount: _count.comments }));
+  res.json({
+    items: list,
+    mine: list.filter((r) => r.reviewerId === req.user.id).length,
+    unassigned: list.filter((r) => !r.reviewerId).length,
+  });
+});
+
+/** Usuarios que pueden ser elegidos como revisores. */
+reportsRouter.get('/review/reviewers', requireAuth, async (_req, res) => {
+  res.json({ users: await prisma.user.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }) });
+});
+
+reportsRouter.get('/:id/comments', requireAuth, async (req, res) => {
+  const report = await findReportOr404(req, req.params.id);
+  const comments = await prisma.reportComment.findMany({
+    where: { reportId: report.id },
+    orderBy: { createdAt: 'asc' },
+    include: { user: { select: { id: true, name: true } } },
+  });
+  res.json({
+    comments: comments.map((c) => ({ id: c.id, kind: c.kind, body: c.body, createdAt: c.createdAt, userId: c.userId, author: c.user?.name ?? c.userLabel ?? 'Usuario eliminado' })),
+  });
+});
+
+reportsRouter.post('/:id/comments', requireAuth, async (req, res) => {
+  const report = await findReportOr404(req, req.params.id);
+  const { body } = parseOr400(z.object({ body: z.string().trim().min(1, 'Escribe un comentario').max(5000) }), req.body);
+  const c = await prisma.reportComment.create({ data: { reportId: report.id, userId: req.user.id, userLabel: req.user.name, body } });
+  res.status(201).json({ comment: { id: c.id, kind: c.kind, body: c.body, createdAt: c.createdAt, userId: c.userId, author: req.user.name } });
+});
+
+reportsRouter.delete('/:id/comments/:commentId', requireAuth, async (req, res) => {
+  const c = await prisma.reportComment.findFirst({ where: { id: req.params.commentId, reportId: req.params.id } });
+  if (!c) throw notFound('Comentario');
+  if (c.kind !== 'COMMENT') throw new HttpError(400, 'Los eventos del historial no se pueden borrar');
+  if (c.userId !== req.user.id && req.user.role !== 'ADMIN') throw new HttpError(403, 'Solo puedes borrar tus propios comentarios');
+  await prisma.reportComment.delete({ where: { id: c.id } });
+  res.json({ ok: true });
+});
+
 // ---------- Escritura (equipo) ----------
+
+/** Sube varios archivos y devuelve a qué casilla propone la IA asignar cada uno (no guarda nada). */
+reportsRouter.post('/classify', requireAuth, uploadMany.array('files', 12), async (req, res) => {
+  const files = (req.files ?? []).map((f) => ({ name: f.originalname, mimeType: normalizeMime(f), buffer: f.buffer }));
+  if (files.length === 0) throw new HttpError(400, 'No se recibió ningún archivo');
+  const bad = files.find((f) => !ACCEPTED_MIME.test(f.mimeType));
+  if (bad) throw new HttpError(400, `"${bad.name}" no es una imagen ni un CSV`);
+  res.json({ suggestions: await classifyFiles(files, { user: req.user }) });
+});
 
 reportsRouter.post('/', requireAuth, async (req, res) => {
   const data = parseOr400(metaSchema, req.body);
@@ -119,15 +195,44 @@ reportsRouter.post('/', requireAuth, async (req, res) => {
   res.status(201).json({ report });
 });
 
+/** Texto del evento que queda en los comentarios al cambiar de estado. */
+function statusEvent(from, to, who, reviewerName) {
+  if (to === 'IN_REVIEW') return `${who} envió el reporte a revisión${reviewerName ? ` (revisa: ${reviewerName})` : ''}`;
+  if (to === 'PUBLISHED') return `${who} publicó el reporte`;
+  if (to === 'DRAFT' && from === 'PUBLISHED') return `${who} despublicó el reporte (pasó a borrador)`;
+  if (to === 'DRAFT') return `${who} devolvió el reporte a borrador`;
+  return null;
+}
+
 reportsRouter.patch('/:id', requireAuth, async (req, res) => {
   const current = await findReportOr404(req, req.params.id);
-  const { metrics, status, ...rest } = parseOr400(updateSchema, req.body);
+  const { metrics, status, reviewerId, ...rest } = parseOr400(updateSchema, req.body);
   const data = { ...rest, ...(metrics ?? {}) };
-  if (status) {
+
+  let reviewer = null;
+  if (reviewerId !== undefined) {
+    if (reviewerId) {
+      reviewer = await prisma.user.findUnique({ where: { id: reviewerId }, select: { id: true, name: true } });
+      if (!reviewer) throw new HttpError(400, 'El revisor elegido no existe');
+    }
+    data.reviewerId = reviewerId;
+  }
+
+  const statusChanged = status && status !== current.status;
+  if (statusChanged) {
     data.status = status;
+    if (status === 'IN_REVIEW') data.submittedAt = new Date();
     if (status === 'PUBLISHED' && !current.publishedAt) data.publishedAt = new Date();
   }
-  const report = await prisma.report.update({ where: { id: current.id }, data });
+
+  const report = await prisma.$transaction(async (tx) => {
+    const updated = await tx.report.update({ where: { id: current.id }, data });
+    if (statusChanged) {
+      const body = statusEvent(current.status, status, req.user.name, reviewer?.name);
+      if (body) await tx.reportComment.create({ data: { reportId: current.id, userId: req.user.id, userLabel: req.user.name, kind: 'EVENT', body } });
+    }
+    return updated;
+  });
   res.json({ report });
 });
 
@@ -149,8 +254,7 @@ reportsRouter.put('/:id/files/:slot', requireAuth, upload.single('file'), async 
   const file = req.file;
   if (!file) throw new HttpError(400, 'No se recibió ningún archivo');
 
-  // Algunos navegadores en Windows envían los CSV como application/octet-stream.
-  const mimeType = /\.csv$/i.test(file.originalname) && !ACCEPTED_MIME.test(file.mimetype) ? 'text/csv' : file.mimetype;
+  const mimeType = normalizeMime(file);
   if (!ACCEPTED_MIME.test(mimeType)) throw new HttpError(400, 'Formato no permitido. Sube una imagen (PNG/JPG/WebP) o un CSV.');
 
   const data = { filename: file.originalname, mimeType, size: file.size, data: file.buffer };

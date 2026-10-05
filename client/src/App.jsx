@@ -8,6 +8,7 @@ import ReportDetail from './pages/ReportDetail.jsx';
 import Reports from './pages/Reports.jsx';
 import ReportEditor from './pages/admin/ReportEditor.jsx';
 import Settings from './pages/admin/Settings.jsx';
+import ReviewInbox from './pages/admin/ReviewInbox.jsx';
 import Usage from './pages/admin/Usage.jsx';
 
 function AdminsOnly({ children }) {
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="login" element={<Login />} />
         <Route path="admin/nuevo" element={<MembersOnly><ReportEditor /></MembersOnly>} />
         <Route path="admin/reportes/:id" element={<MembersOnly><ReportEditor /></MembersOnly>} />
+        <Route path="admin/revision" element={<MembersOnly><ReviewInbox /></MembersOnly>} />
         <Route path="admin/consumo" element={<AdminsOnly><Usage /></AdminsOnly>} />
         <Route path="admin/ajustes" element={<MembersOnly><Settings /></MembersOnly>} />
         <Route path="*" element={<Empty title="Página no encontrada" />} />

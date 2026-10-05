@@ -40,7 +40,7 @@ export const METRICS = [
 
 export const METRIC_KEYS = METRICS.map((m) => m.key);
 
-export const REPORT_STATUS = ['DRAFT', 'PUBLISHED'];
+export const REPORT_STATUS = ['DRAFT', 'IN_REVIEW', 'PUBLISHED'];
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const ACCEPTED_MIME = /^(image\/(png|jpe?g|webp|heic|heif)|text\/(csv|plain)|application\/(vnd\.ms-excel|csv))$/;
