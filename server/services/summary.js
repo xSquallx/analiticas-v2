@@ -92,9 +92,10 @@ REGLAS (obligatorias):
 3. Tono neutral y descriptivo. No uses palabras alarmistas o dramáticas (por ejemplo: "crítico", "grave", "alarmante",
    "preocupante", "desplome", "fracaso", "catastrófico", "riesgo"). Usa "disminuyó", "aumentó", "por debajo de", "por encima de".
 4. No hagas juicios ni conclusiones que no se desprendan directamente de los números.
-5. Los flujos marcados para verificar se mencionan solo en su sección, como "pendientes de verificación", sin valorarlos.
-6. Si un dato no está disponible, dilo así; no lo estimes.
-7. Responde solo con Markdown, sin introducción ni despedida.
+5. Todas las cifras son medianas salvo que se indique otra cosa; nómbralas como "mediana".
+6. Los flujos marcados para verificar se mencionan solo en su sección, como "pendientes de verificación", sin valorarlos.
+7. Si un dato no está disponible, dilo una sola vez; no lo estimes.
+8. Responde solo con Markdown, sin introducción ni despedida.
 
 FORMATO (exactamente estas secciones, omite una sección solo si no hay datos para ella):
 ## Resumen del mes
@@ -111,20 +112,24 @@ Comparación descriptiva entre Casino, Deporte y otros.
 Lista de flujos marcados por el control de calidad y el motivo.`;
 
 function statsForPrompt(s) {
+  // Métricas sin ningún dato en el mes: se mencionan una sola vez en lugar de repetirlas en cada sección
+  const withData = KPI.filter((m) => s.metrics[m.key].n > 0);
+  const withoutData = KPI.filter((m) => s.metrics[m.key].n === 0);
   const lines = [`Periodo: ${s.period} · Moneda: ${s.currency} · Flujos publicados: ${s.reportCount} (mes anterior ${s.previousPeriod}: ${s.previousReportCount})`];
   lines.push('', 'Medianas del mes (sin los flujos pendientes de verificación):');
-  for (const m of KPI) {
+  for (const m of withData) {
     const cur = s.metrics[m.key];
     const ch = s.changes?.[m.key];
     lines.push(`- ${m.label}: mediana ${cur.median ?? 'no disponible'} (promedio ${cur.average ?? 'n/d'}, ${cur.n} flujos con dato)${ch != null ? ` · variación vs mes anterior: ${ch > 0 ? '+' : ''}${ch}%` : ''}`);
   }
+  if (withoutData.length) lines.push(`- Sin datos en ningún flujo este mes (mencionarlo una sola vez en "Resumen del mes" y no repetirlo): ${withoutData.map((m) => m.label).join(', ')}`);
   lines.push(`- Net revenue: ${s.netRevenue.positive} flujos positivos y ${s.netRevenue.negative} negativos de ${s.netRevenue.withData} con dato`);
   const row = (r) => `"${r.flowName}": net revenue ${r.avgNetRevenue}, depósitos ${r.avgDeposits ?? 'n/d'}, monto depósitos ${r.avgDepositAmount ?? 'n/d'}, días actividad ${r.avgActivityDays ?? 'n/d'}`;
   lines.push('', 'Mayor net revenue:', ...s.top.map((r, i) => `${i + 1}. ${row(r)}`));
   lines.push('', 'Menor net revenue:', ...s.bottom.map((r, i) => `${i + 1}. ${row(r)}`));
   lines.push('', 'Por vertical (medianas):');
   for (const [v, d] of Object.entries(s.verticals)) {
-    lines.push(`- ${v} (${d.count} flujos): ${KPI.map((m) => `${m.label} ${d.metrics[m.key].median ?? 'n/d'}`).join('; ')}`);
+    lines.push(`- ${v} (${d.count} flujos): ${withData.map((m) => `${m.label} ${d.metrics[m.key].median ?? 'n/d'}`).join('; ')}`);
   }
   lines.push('', 'Pendientes de verificación:', ...(s.flagged.length ? s.flagged.map((f) => `- "${f.flowName}": ${f.issues.join(' ')}`) : ['- Ninguno']));
   return lines.join('\n');
