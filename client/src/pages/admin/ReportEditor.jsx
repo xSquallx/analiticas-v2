@@ -39,7 +39,7 @@ function MetaFields({ value, onChange }) {
       </label>
       <Select label="Mes" value={value.month} onChange={set('month')} options={meta.months.map((m, i) => ({ value: String(i + 1), label: m }))} />
       <Select label="Año" value={value.year} onChange={set('year')} options={years.map((y) => ({ value: y, label: y }))} />
-      <Select label="Moneda" value={value.currency || meta.currencies[0]} onChange={set('currency')} options={meta.currencies.map((c) => ({ value: c, label: c }))} />
+      <Select label="Mercado" value={value.currency || meta.currencies[0]} onChange={set('currency')} options={meta.currencies.map((c) => ({ value: c, label: c }))} />
     </div>
   );
 }
@@ -53,7 +53,7 @@ const metaPayload = (m, currencies) => ({
 
 /**
  * Paso 1 para un análisis nuevo: crea el borrador y redirige al editor completo.
- * Con ?from=<id> duplica un flujo: mismo nombre y moneda, mes siguiente.
+ * Con ?from=<id> duplica un flujo: mismo nombre y mercado, mes siguiente.
  */
 function NewReport() {
   const { meta } = useApp();
@@ -97,7 +97,7 @@ function NewReport() {
           <Copy className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             Duplicando <strong>{source.flowName}</strong> ({meta.months[source.month - 1]} {source.year}). Revisa el mes y, si el nombre lleva fecha, ajústalo.
-            Solo se copian el nombre y la moneda: los archivos y el análisis empiezan vacíos.
+            Solo se copian el nombre y el mercado: los archivos y el análisis empiezan vacíos.
           </p>
         </div>
       )}
@@ -297,7 +297,7 @@ function EditReport({ id }) {
               </select>
             </label>
           )}
-          <Link to={`/admin/nuevo?from=${id}`} className="btn-ghost" title="Crear el análisis de otro mes con el mismo nombre y moneda">
+          <Link to={`/admin/nuevo?from=${id}`} className="btn-ghost" title="Crear el análisis de otro mes con el mismo nombre y mercado">
             <Copy className="h-4 w-4" /> Duplicar para otro mes
           </Link>
         </div>

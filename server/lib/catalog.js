@@ -1,7 +1,9 @@
 // Catálogo único del dominio. El frontend lo recibe vía GET /api/meta,
 // así que cualquier cambio aquí se refleja en toda la app.
 
+/** Mercados. Solo identifican el país: en Optimove todos los montos están en dólares (USD). */
 export const CURRENCIES = ['VES/USD', 'CLP', 'PEN', 'MXN'];
+export const AMOUNT_UNIT = 'USD';
 
 export const MONTHS = [
   'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -29,7 +31,8 @@ export const METRICS = [
   { key: 'emailsSent', label: 'Correos enviados', type: 'int', format: 'number', group: 'audience', description: 'Correos enviados (o entregados si no hay enviados)' },
   { key: 'emailsOpened', label: 'Aperturas', type: 'int', format: 'number', group: 'audience', description: 'Correos abiertos (únicos si está disponible)' },
   { key: 'emailsClicked', label: 'Clics', type: 'int', format: 'number', group: 'audience', description: 'Clics en correos (únicos si está disponible)' },
-  { key: 'depositors', label: 'Depositantes', type: 'int', format: 'number', group: 'audience', description: 'Cantidad de clientes que depositaron' },
+  { key: 'depositors', label: 'Depositantes (Optimove)', type: 'int', format: 'number', group: 'audience', description: 'Cantidad de depositantes que reporta Optimove en la captura' },
+  { key: 'uniqueDepositors', label: 'Depositantes únicos (CSV)', type: 'int', format: 'number', group: 'audience', description: 'IDs distintos en el CSV de depositantes (lo calcula el sistema)', computed: true },
   { key: 'avgDeposits', label: 'Prom. depósitos', type: 'float', format: 'number', group: 'kpi', description: 'Avg. Number of Deposits' },
   { key: 'avgDepositAmount', label: 'Monto prom. depósitos', type: 'float', format: 'money', group: 'kpi', description: 'Avg. Total Deposit Amount' },
   { key: 'avgActivityDays', label: 'Días de actividad', type: 'float', format: 'number', group: 'kpi', description: 'Avg. Number of Activity Days' },

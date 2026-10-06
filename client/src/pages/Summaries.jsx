@@ -6,7 +6,7 @@ import { api, toQuery } from '../lib/api.js';
 import { useApp } from '../lib/app-context.jsx';
 import { formatDate, periodLabel } from '../lib/format.js';
 
-/** Formulario del equipo para generar (o regenerar) el resumen de un mes y una moneda. */
+/** Formulario del equipo para generar (o regenerar) el resumen de un mes y un mercado. */
 function GenerateForm() {
   const { meta } = useApp();
   const navigate = useNavigate();
@@ -23,7 +23,7 @@ function GenerateForm() {
   }, [form]);
 
   const generate = async () => {
-    if (preview?.existing && !window.confirm('Ya existe un resumen de ese mes y moneda. Se reemplazará por uno nuevo (quedará en borrador). ¿Continuar?')) return;
+    if (preview?.existing && !window.confirm('Ya existe un resumen de ese mes y mercado. Se reemplazará por uno nuevo (quedará en borrador). ¿Continuar?')) return;
     setBusy(true);
     setError('');
     try {
@@ -50,7 +50,7 @@ function GenerateForm() {
       <div className="flex flex-wrap items-end gap-3">
         <Select label="Mes" value={form.month} onChange={set('month')} options={meta.months.map((m, i) => ({ value: String(i + 1), label: m }))} />
         <Select label="Año" value={form.year} onChange={set('year')} options={years.map((y) => ({ value: y, label: y }))} />
-        <Select label="Moneda" value={form.currency} onChange={set('currency')} options={meta.currencies.map((c) => ({ value: c, label: c }))} />
+        <Select label="Mercado" value={form.currency} onChange={set('currency')} options={meta.currencies.map((c) => ({ value: c, label: c }))} />
         <button className="btn-primary" onClick={generate} disabled={busy || !preview?.reportCount}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {busy ? 'Generando…' : preview?.existing ? 'Regenerar resumen' : 'Generar resumen'}
@@ -60,7 +60,7 @@ function GenerateForm() {
         {!preview
           ? 'Calculando…'
           : preview.reportCount === 0
-            ? 'No hay reportes publicados en ese mes y moneda.'
+            ? 'No hay reportes publicados en ese mes y mercado.'
             : `${preview.reportCount} reportes publicados${preview.flagged ? ` · ${preview.flagged} pendientes de verificación (no entran en el ranking)` : ''}.`}
       </p>
       <div className="mt-2">
@@ -85,7 +85,7 @@ export default function Summaries() {
         <h1 className="flex items-center gap-2 text-2xl font-bold text-white">
           <FileBarChart className="h-6 w-6 text-indigo-300" /> Resúmenes mensuales
         </h1>
-        <p className="text-sm text-muted">Una vista de todos los flujos de un mes por moneda.</p>
+        <p className="text-sm text-muted">Una vista de todos los flujos de un mes por mercado. Todos los montos en USD.</p>
       </div>
 
       {canEdit && <GenerateForm />}

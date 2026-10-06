@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { ACCEPTED_MIME, CURRENCIES, MAX_FILE_BYTES, METRICS, REPORT_STATUS, UPLOAD_SLOTS } from '../lib/catalog.js';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/db.js';
 import { familyKey, periodIndex, previousMatches } from '../lib/flowKey.js';
 import { HttpError, notFound, parseOr400 } from '../lib/http.js';
@@ -320,6 +321,7 @@ reportsRouter.post('/:id/analyze', requireAuth, async (req, res) => {
       aiModel: result.model,
       promptVersion: result.promptVersion,
       aiWarnings: result.warnings,
+      idInsights: result.idInsights ?? Prisma.DbNull,
       analyzedAt: new Date(),
     },
   });

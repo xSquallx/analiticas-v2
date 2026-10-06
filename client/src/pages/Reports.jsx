@@ -42,7 +42,7 @@ export default function Reports() {
               <tr>
                 <th className="px-4 py-3">Flujo</th>
                 <th className="px-4 py-3">Periodo</th>
-                <th className="px-4 py-3">Moneda</th>
+                <th className="px-4 py-3">Mercado</th>
                 {COLUMNS.map((k) => (
                   <th key={k} className="px-4 py-3 text-right">{metricByKey(meta, k).label}</th>
                 ))}

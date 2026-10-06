@@ -3,12 +3,15 @@ import { CURRENCIES, MONTHS } from '../lib/catalog.js';
 import { prisma } from '../lib/db.js';
 import { HttpError } from '../lib/http.js';
 
+const ZERO_FIELDS = ['avgDeposits', 'avgDepositAmount', 'avgActivityDays'];
+const ZERO_FIELDS_SELECT = Object.fromEntries(ZERO_FIELDS.map((k) => [k, true]));
+
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
 /**
  * Importa los reportes del sistema V1 leyendo su API pública (solo GET, nunca escribe en V1).
  * Es idempotente: usa el id original como legacyId, así que repetirlo solo agrega lo nuevo
- * y nunca sobrescribe lo ya importado.
+ * * y nunca sobrescribe lo ya importado (solo completa ceros guardados como vacíos).
  */
 export async function importFromV1() {
   if (!config.V1_API_URL) throw new HttpError(400, 'Define V1_API_URL para importar desde el sistema anterior');
@@ -21,6 +24,7 @@ export async function importFromV1() {
 
   let created = 0;
   let alreadyImported = 0;
+  let zerosRestored = 0;
   const skipped = [];
 
   for (const row of rows) {
@@ -35,19 +39,25 @@ export async function importFromV1() {
       month,
       year,
       currency: row.currency,
-      // V1 guardaba 0 cuando no encontraba el dato; lo tratamos como "no disponible".
-      avgDeposits: num(row.metrics?.avgDeposits) || null,
-      avgDepositAmount: num(row.metrics?.avgDepositAmount) || null,
+      // Un 0 es un dato válido (regla del equipo de CRM): se conserva como 0.
+      avgDeposits: num(row.metrics?.avgDeposits),
+      avgDepositAmount: num(row.metrics?.avgDepositAmount),
       avgNetRevenue: num(row.metrics?.netRevenue),
-      avgActivityDays: num(row.metrics?.activityDays) || null,
+      avgActivityDays: num(row.metrics?.activityDays),
       analysis: row.analysis ?? '',
     };
     const savedAt = row.dateSaved ? new Date(row.dateSaved) : new Date();
 
-    // Si ya existe no se toca: puede haber sido corregido en V2.
-    const existing = await prisma.report.findUnique({ where: { legacyId: row.id }, select: { id: true } });
+    // Si ya existe no se sobrescribe (puede haber sido corregido en V2). Solo se completan
+    // los ceros que una versión anterior de la importación guardó como "no disponible".
+    const existing = await prisma.report.findUnique({ where: { legacyId: row.id }, select: { id: true, ...ZERO_FIELDS_SELECT } });
     if (existing) {
       alreadyImported++;
+      const zeros = Object.fromEntries(ZERO_FIELDS.filter((k) => existing[k] === null && data[k] === 0).map((k) => [k, 0]));
+      if (Object.keys(zeros).length) {
+        await prisma.report.update({ where: { id: existing.id }, data: zeros });
+        zerosRestored++;
+      }
     } else {
       await prisma.report.create({
         data: { ...data, legacyId: row.id, source: 'V1', status: 'PUBLISHED', createdAt: savedAt, publishedAt: savedAt },
@@ -56,5 +66,5 @@ export async function importFromV1() {
     }
   }
 
-  return { total: rows.length, created, alreadyImported, skipped };
+  return { total: rows.length, created, alreadyImported, zerosRestored, skipped };
 }

@@ -9,7 +9,7 @@ Tu tarea es analizar los datos de un flujo/campaña de Optimove y generar un rep
 CONTEXTO
 - Flujo: {{flowName}}
 - Periodo: {{period}}
-- Moneda: {{currency}}
+- Mercado: {{currency}} (todos los montos en USD)
 
 REGLAS DE TONO Y ESTILO
 1. Tono estrictamente profesional, corporativo y analítico.

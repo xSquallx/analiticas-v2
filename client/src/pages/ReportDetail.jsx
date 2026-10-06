@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import Comments from '../components/Comments.jsx';
 import FlowHistory from '../components/FlowHistory.jsx';
+import IdInsights from '../components/IdInsights.jsx';
 import { QualityPanel } from '../components/Quality.jsx';
 import { Empty, ErrorBox, Markdown, MetricTile, SourceBadge, Spinner, StatusBadge } from '../components/ui.jsx';
 import { api } from '../lib/api.js';
@@ -14,6 +15,7 @@ function hintFor(key, r) {
   if (key === 'emailsOpened') return r.emailsSent ? `${pct(r.emailsOpened, r.emailsSent)} de enviados` : null;
   if (key === 'emailsClicked') return r.emailsOpened ? `${pct(r.emailsClicked, r.emailsOpened)} de aperturas` : null;
   if (key === 'depositors') return r.targetedCustomers ? `${pct(r.depositors, r.targetedCustomers)} del segmento` : null;
+  if (key === 'uniqueDepositors') return r.targetedCustomers ? `${pct(r.uniqueDepositors, r.targetedCustomers)} del segmento` : null;
   return null;
 }
 
@@ -65,7 +67,7 @@ export default function ReportDetail() {
           </button>
           {canEdit && (
             <>
-              <Link to={`/admin/nuevo?from=${report.id}`} className="btn-ghost" title="Crear el análisis de otro mes con el mismo nombre y moneda">
+              <Link to={`/admin/nuevo?from=${report.id}`} className="btn-ghost" title="Crear el análisis de otro mes con el mismo nombre y mercado">
                 <Copy className="h-4 w-4" /> Duplicar
               </Link>
               <Link to={`/admin/reportes/${report.id}`} className="btn-ghost">
@@ -105,7 +107,7 @@ export default function ReportDetail() {
         </div>
 
         {hasAudience && (
-          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
             {audience.map((m) => (
               <MetricTile key={m.key} metric={m} value={report[m.key]} hint={hintFor(m.key, report)} />
             ))}
@@ -120,6 +122,8 @@ export default function ReportDetail() {
       <div className="card p-6 sm:p-8">
         <Markdown>{report.analysis}</Markdown>
       </div>
+
+      <IdInsights insights={report.idInsights} />
 
       {canEdit && report.notes && (
         <div className="card no-print p-5">

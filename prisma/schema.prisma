@@ -31,7 +31,8 @@ model Report {
   flowName String
   month    Int // 1-12
   year     Int
-  currency String // VES/USD, CLP, PEN, MXN
+  /// Mercado (VES/USD, CLP, PEN, MXN). Todos los montos están en USD.
+  currency String
 
   /// DRAFT y IN_REVIEW: solo visibles para el equipo. PUBLISHED: visible en el enlace público.
   status String @default("DRAFT")
@@ -44,7 +45,10 @@ model Report {
   emailsSent        Int?
   emailsOpened      Int?
   emailsClicked     Int?
+  /// Depositantes según Optimove (captura).
   depositors        Int?
+  /// IDs distintos contados en el CSV de depositantes (puede diferir de Optimove).
+  uniqueDepositors  Int?
   avgDeposits       Float?
   avgDepositAmount  Float?
   avgActivityDays   Float?
@@ -59,6 +63,8 @@ model Report {
   aiModel       String?
   promptVersion Int?
   aiWarnings    Json?
+  /// IDs con protagonismo en los KPI, calculados de los CSV (ver server/services/idInsights.js).
+  idInsights    Json?
   analyzedAt    DateTime?
 
   createdById String?

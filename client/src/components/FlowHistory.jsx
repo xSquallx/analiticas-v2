@@ -98,7 +98,7 @@ export default function FlowHistory({ report }) {
             <History className="h-5 w-5 text-indigo-300" /> Historial del flujo
           </h2>
           <p className="text-xs text-muted">
-            {items.length} reportes en {periods} {periods === 1 ? 'mes' : 'meses'} · {report.currency} · las variaciones comparan con la misma versión del mes anterior
+            {items.length} reportes en {periods} {periods === 1 ? 'mes' : 'meses'} · mercado {report.currency} · montos en USD · la variación compara con el mes anterior
           </p>
         </div>
         <div className="no-print">
@@ -132,7 +132,7 @@ export default function FlowHistory({ report }) {
           <thead className="text-left text-xs uppercase text-muted">
             <tr>
               <th className="py-2 pr-3">Periodo</th>
-              <th className="py-2 pr-3">Versión</th>
+              <th className="py-2 pr-3">Nombre en Optimove</th>
               {TABLE_METRICS.map((k) => (
                 <th key={k} className="py-2 pl-3 text-right">{metricByKey(meta, k).label}</th>
               ))}

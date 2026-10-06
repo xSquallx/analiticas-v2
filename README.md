@@ -21,8 +21,14 @@ Flujo de un análisis: **Nuevo análisis (o "Duplicar" de un mes anterior) → s
 - **Resúmenes mensuales**: por mes y moneda, con cifras calculadas por el sistema y redacción de la IA (solo descriptiva, sin recomendaciones). Los flujos a verificar no entran en el ranking.
 
 ### Reglas de datos
+- **Mercado ≠ moneda:** VES/USD, CLP, PEN y MXN indican el mercado; en Optimove todos los montos están en **USD**.
+- **Fecha en el nombre del flujo** = fecha de última modificación. El flujo se identifica por su nombre sin fechas; dos reportes del mismo flujo en el mismo mes se marcan como posible duplicado.
+- **Vertical** según el nombre: CASINO o DEPORTE; si no dice ninguna, abarca ambas.
+- **Valores en 0** son datos válidos. **Números abreviados** (21.69K) se completan a enteros.
+- **Depositantes (Optimove)** y **Depositantes únicos (CSV)** se guardan por separado; es normal que difieran.
+- **IDs destacados:** con los CSV se calcula en qué KPI tiene protagonismo cada ID (top 10 / 10 más bajos) y su línea temporal (si hay fechas) o atemporal.
 - Una métrica vacía significa **dato no disponible**. La IA tiene prohibido estimar; si no ve un dato, devuelve `null` y deja un aviso.
-- Los CSV se procesan en el servidor: los pequeños se envían completos y los grandes como **estadísticas exactas** (suma, promedio, mín/máx, negativos, top/bottom) + muestra. El número de depositantes se **cuenta** del CSV de IDs, no lo lee la IA.
+- Los CSV se procesan en el servidor: los pequeños se envían completos y los grandes como **estadísticas exactas** (suma, promedio, mín/máx, negativos, top/bottom) + muestra. Los depositantes únicos se **cuentan** del CSV de IDs (no los lee la IA).
 - Los archivos originales se guardan con el reporte, así se puede volver a analizar.
 - El prompt es editable y versionado (Ajustes). Las reglas de extracción y el formato JSON los añade el código, por lo que editar el prompt no rompe nada.
 

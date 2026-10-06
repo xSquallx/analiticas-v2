@@ -124,6 +124,7 @@ function LegacyImport() {
         {result && (
           <p className="text-sm text-good">
             {result.total} reportes en V1 · {result.created} nuevos importados · {result.alreadyImported} ya existían
+            {result.zerosRestored > 0 && <> · {result.zerosRestored} con valores 0 restaurados</>}
             {result.skipped.length > 0 && <span className="text-amber-300"> · {result.skipped.length} omitidos por datos incompletos</span>}
           </p>
         )}

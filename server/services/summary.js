@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { METRICS, MONTHS } from '../lib/catalog.js';
 import { prisma } from '../lib/db.js';
 import { HttpError } from '../lib/http.js';
+import { flowVertical } from '../lib/flowKey.js';
 import { computeOutliers, median } from '../lib/quality.js';
 import { friendlyGeminiError } from './analysis.js';
 import { UsageTracker } from './usage.js';
@@ -14,15 +15,7 @@ const SELECT = { id: true, flowName: true, month: true, year: true, currency: tr
 const round = (n) => (n == null ? null : Math.round(n * 100) / 100);
 const pctChange = (now, prev) => (now == null || prev == null || prev === 0 ? null : round(((now - prev) / Math.abs(prev)) * 100));
 
-/** Vertical deducida del nombre del flujo (solo para agrupar; si no se reconoce, "Otros"). */
-function vertical(name) {
-  const n = name.toLowerCase();
-  const casino = /casino|maquinita|slot|live/.test(n);
-  const sport = /deporte|deportiv|sport/.test(n);
-  if (casino && !sport) return 'Casino';
-  if (sport && !casino) return 'Deporte';
-  return 'Otros / mixtos';
-}
+
 
 function metricStats(list) {
   return Object.fromEntries(
@@ -46,18 +39,20 @@ export async function buildMonthStats(year, month, currency) {
   const current = all.filter((r) => r.year === year && r.month === month);
   const previous = all.filter((r) => r.year === prev.year && r.month === prev.month);
   const outliers = computeOutliers(all);
+  // Solo los valores fuera de rango se excluyen de medianas y ranking; un posible duplicado se informa pero cuenta.
+  const excluded = (r) => (outliers.get(r.id) ?? []).some((flag) => flag.metric !== 'duplicate');
 
-  const clean = current.filter((r) => !outliers.has(r.id));
+  const clean = current.filter((r) => !excluded(r));
   const ranked = clean.filter((r) => r.avgNetRevenue != null).sort((a, b) => b.avgNetRevenue - a.avgNetRevenue);
   const pick = (r) => ({ id: r.id, flowName: r.flowName, avgNetRevenue: r.avgNetRevenue, avgDeposits: r.avgDeposits, avgDepositAmount: r.avgDepositAmount, avgActivityDays: r.avgActivityDays });
 
   const currentStats = metricStats(clean);
-  const previousStats = previous.length ? metricStats(previous.filter((r) => !outliers.has(r.id))) : null;
+  const previousStats = previous.length ? metricStats(previous.filter((r) => !excluded(r))) : null;
   const nr = clean.map((r) => r.avgNetRevenue).filter((v) => v != null);
 
   const verticals = {};
   for (const r of clean) {
-    const v = vertical(r.flowName);
+    const v = flowVertical(r.flowName);
     (verticals[v] ??= []).push(r);
   }
 
@@ -79,7 +74,7 @@ export async function buildMonthStats(year, month, currency) {
     flagged: current
       .filter((r) => outliers.has(r.id))
       .map((r) => ({ id: r.id, flowName: r.flowName, issues: outliers.get(r.id).map((f) => f.message) })),
-    flows: current.map((r) => ({ ...pick(r), flagged: outliers.has(r.id) })),
+    flows: current.map((r) => ({ ...pick(r), flagged: excluded(r) })),
   };
 }
 
@@ -94,8 +89,10 @@ REGLAS (obligatorias):
 4. No hagas juicios ni conclusiones que no se desprendan directamente de los números.
 5. Todas las cifras son medianas salvo que se indique otra cosa; nómbralas como "mediana".
 6. Los flujos marcados para verificar se mencionan solo en su sección, como "pendientes de verificación", sin valorarlos.
-7. Si un dato no está disponible, dilo una sola vez; no lo estimes.
-8. Responde solo con Markdown, sin introducción ni despedida.
+7. Si un dato no está disponible, dilo una sola vez; no lo estimes. Un valor 0 es un dato válido.
+8. El mercado (VES/USD, CLP, PEN, MXN) solo indica el país: todos los montos están en dólares (USD). Escribe "USD".
+9. La fecha en los nombres de los flujos es la de última modificación; no la interpretes.
+10. Responde solo con Markdown, sin introducción ni despedida.
 
 FORMATO (exactamente estas secciones, omite una sección solo si no hay datos para ella):
 ## Resumen del mes
@@ -107,7 +104,7 @@ Los 3 últimos con sus cifras.
 ## Comparación con el mes anterior
 Variación de las medianas principales en %.
 ## Por vertical
-Comparación descriptiva entre Casino, Deporte y otros.
+Comparación descriptiva entre flujos de Casino, de Deporte y los que abarcan ambas verticales (sin vertical en el nombre).
 ## Datos pendientes de verificación
 Lista de flujos marcados por el control de calidad y el motivo.`;
 
@@ -115,7 +112,7 @@ function statsForPrompt(s) {
   // Métricas sin ningún dato en el mes: se mencionan una sola vez en lugar de repetirlas en cada sección
   const withData = KPI.filter((m) => s.metrics[m.key].n > 0);
   const withoutData = KPI.filter((m) => s.metrics[m.key].n === 0);
-  const lines = [`Periodo: ${s.period} · Moneda: ${s.currency} · Flujos publicados: ${s.reportCount} (mes anterior ${s.previousPeriod}: ${s.previousReportCount})`];
+  const lines = [`Periodo: ${s.period} · Mercado: ${s.currency} (todos los montos en USD) · Flujos publicados: ${s.reportCount} (mes anterior ${s.previousPeriod}: ${s.previousReportCount})`];
   lines.push('', 'Medianas del mes (sin los flujos pendientes de verificación):');
   for (const m of withData) {
     const cur = s.metrics[m.key];

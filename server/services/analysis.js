@@ -2,11 +2,16 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { config } from '../config.js';
 import { METRICS, MONTHS, UPLOAD_SLOTS } from '../lib/catalog.js';
 import { HttpError } from '../lib/http.js';
+import { flowVertical } from '../lib/flowKey.js';
 import { countUniqueIds, describeCsvForAi } from './csv.js';
+import { buildIdInsights, idInsightsForPrompt } from './idInsights.js';
 import { getActivePrompt, renderPrompt } from './prompts.js';
 import { UsageTracker } from './usage.js';
 
 const ai = config.GEMINI_API_KEY ? new GoogleGenAI({ apiKey: config.GEMINI_API_KEY }) : null;
+
+/** Métricas que lee la IA (las marcadas `computed` las calcula el sistema). */
+const AI_METRICS = METRICS.filter((m) => !m.computed);
 
 const RESPONSE_SCHEMA = {
   type: Type.OBJECT,
@@ -14,9 +19,9 @@ const RESPONSE_SCHEMA = {
     metrics: {
       type: Type.OBJECT,
       properties: Object.fromEntries(
-        METRICS.map((m) => [m.key, { type: Type.NUMBER, nullable: true, description: `${m.label}: ${m.description}` }]),
+        AI_METRICS.map((m) => [m.key, { type: Type.NUMBER, nullable: true, description: `${m.label}: ${m.description}` }]),
       ),
-      required: METRICS.map((m) => m.key),
+      required: AI_METRICS.map((m) => m.key),
     },
     warnings: { type: Type.ARRAY, items: { type: Type.STRING } },
     analysis: { type: Type.STRING },
@@ -41,25 +46,41 @@ function historyBlock(history) {
     });
   return `
 
-HISTORIAL DEL MISMO FLUJO (meses anteriores, misma moneda)
+HISTORIAL DEL MISMO FLUJO (meses anteriores, mismo mercado)
 ${lines.join('\n')}
 
 Usa este historial para comparar: indica la variación (en %) de las métricas principales frente al mes anterior
 dentro de las secciones del reporte y agrega al final una sección "## Evolución vs. meses anteriores" con 2 a 4 viñetas.
-Si hay varias versiones del flujo (nombres con distinta fecha), compara con la versión de nombre más parecido.
+Las fechas en los nombres son solo de última modificación: todos son el mismo flujo.
 No uses el historial para rellenar métricas de este mes.`;
+}
+
+/** Reglas del negocio que la IA debe conocer (definidas por el equipo de CRM). */
+function businessContext(report) {
+  const vertical = flowVertical(report.flowName);
+  return `
+CONTEXTO DEL NEGOCIO (obligatorio)
+- Mercado: ${report.currency}. Indica el país/mercado; TODOS los montos están en dólares (USD). Escribe los montos en USD, nunca en ${report.currency === 'VES/USD' ? 'bolívares' : report.currency}.
+- Vertical según el nombre del flujo: ${vertical}.${vertical === 'Casino y deporte' ? ' El nombre no define vertical, así que el flujo abarca casino y deporte.' : ''}
+- La fecha que aparece en el nombre del flujo (por ejemplo "25/09") es solo la fecha de última modificación en Optimove; no indica el periodo ni la duración de la campaña.
+- En las capturas, los nombres de stream, action o campaña pueden no coincidir exactamente con el nombre del flujo; no lo trates como un error ni como una inconsistencia.
+- Un valor 0 es un dato válido: léelo como parte de la información, no como error ni como dato faltante.
+- "Depositantes" (Optimove) y "depositantes únicos" (IDs distintos del CSV) son métricas diferentes; es normal que no coincidan y no es un error.`;
 }
 
 function extractionRules(verifiedFacts) {
   return `
 EXTRACCIÓN DE MÉTRICAS (obligatorio)
 Del material adjunto, extrae estos valores numéricos tal como aparecen (sin símbolos de moneda ni separadores de miles, punto decimal):
-${METRICS.map((m) => `- ${m.key}: ${m.label} — ${m.description}`).join('\n')}
+${AI_METRICS.map((m) => `- ${m.key}: ${m.label} — ${m.description}`).join('\n')}
 
 Reglas:
 - Si un valor no aparece claramente en los archivos, devuelve null. NO lo estimes ni lo calcules por tu cuenta.
+- Si el valor aparece como 0, devuelve 0 (no null).
+- Si un valor está abreviado, complétalo a número entero: 21.69K → 21690; 1.2M → 1200000.
 - Si una captura muestra grupo objetivo (target) y grupo de control, usa el grupo objetivo; puedes comentar la diferencia vs. control en el análisis.
-- En "warnings" lista en español, en frases cortas, cada dato faltante, ilegible o inconsistente.
+- En "warnings" lista en español, en frases cortas, cada dato faltante o ilegible. No incluyas como aviso: valores en 0,
+  diferencias entre depositantes de Optimove y depositantes únicos del CSV, ni diferencias entre el nombre del flujo y el de stream/action.
 - En "analysis" escribe el reporte completo en Markdown siguiendo el formato indicado arriba.
 ${verifiedFacts.length ? `\nDatos calculados por el sistema (exactos, úsalos tal cual):\n${verifiedFacts.map((f) => `- ${f}`).join('\n')}` : ''}`;
 }
@@ -69,6 +90,7 @@ function buildFileParts(files) {
   const parts = [];
   const verifiedFacts = [];
   const computed = {};
+  const csvFiles = [];
 
   for (const slot of UPLOAD_SLOTS) {
     const file = files.find((f) => f.slot === slot.key);
@@ -84,17 +106,21 @@ function buildFileParts(files) {
       const described = describeCsvForAi(text);
       const note = described.mode === 'full' ? 'CSV completo' : `CSV grande (${described.rowCount} filas): resumen exacto + muestra`;
       parts.push({ text: `\n### Archivo: ${slot.label} (${note})\n${described.content}` });
+      csvFiles.push({ label: slot.label, text });
 
       if (slot.key === 'depositor_ids') {
-        const unique = countUniqueIds(text);
-        if (unique) {
-          computed.depositors = unique;
-          verifiedFacts.push(`Clientes depositantes únicos en el CSV de IDs: ${unique}`);
+        const counted = countUniqueIds(text);
+        if (counted) {
+          computed.uniqueDepositors = counted.unique;
+          verifiedFacts.push(
+            `Depositantes únicos (IDs distintos en el CSV de IDs): ${counted.unique}` +
+              (counted.rows !== counted.unique ? ` (el CSV tiene ${counted.rows} filas; algunos IDs se repiten)` : ''),
+          );
         }
       }
     }
   }
-  return { parts, verifiedFacts, computed };
+  return { parts, verifiedFacts, computed, csvFiles };
 }
 
 function parseJson(text) {
@@ -266,13 +292,15 @@ export async function analyzeReport(report, files, history = [], { user } = {}) 
     currency: report.currency,
   });
 
-  const { parts, verifiedFacts, computed } = buildFileParts(files);
+  const { parts, verifiedFacts, computed, csvFiles } = buildFileParts(files);
+  // Protagonismo de los IDs en los KPI, calculado por el sistema a partir de los CSV
+  const idInsights = buildIdInsights(csvFiles);
   const tracker = new UsageTracker('ANALYSIS', { user, report });
   let result;
   try {
     result = await callGemini(
       [{ role: 'user', parts: [{ text: 'Archivos del flujo a analizar:' }, ...parts] }],
-      instructions + '\n' + extractionRules(verifiedFacts) + historyBlock(history),
+      instructions + '\n' + businessContext(report) + '\n' + extractionRules(verifiedFacts) + historyBlock(history) + idInsightsForPrompt(idInsights),
       tracker,
     );
   } catch (err) {
@@ -284,18 +312,15 @@ export async function analyzeReport(report, files, history = [], { user } = {}) 
   const metrics = sanitizeMetrics(result.metrics);
   const warnings = Array.isArray(result.warnings) ? result.warnings.filter((w) => typeof w === 'string') : [];
 
-  // Los datos calculados por el sistema mandan sobre lo que lea la IA.
-  for (const [key, value] of Object.entries(computed)) {
-    if (metrics[key] !== null && metrics[key] !== value) {
-      warnings.push(`La IA leyó ${metrics[key]} en "${key}", pero el CSV tiene ${value}. Se usó el valor del CSV.`);
-    }
-    metrics[key] = value;
-  }
+  // Métricas calculadas por el sistema (p. ej. depositantes únicos del CSV). No reemplazan
+  // a las que reporta Optimove: son métricas distintas y su diferencia no es un error.
+  Object.assign(metrics, computed);
 
   return {
     metrics,
     warnings,
     analysis: typeof result.analysis === 'string' ? result.analysis.trim() : '',
+    idInsights,
     model: config.GEMINI_MODEL,
     promptVersion: prompt.version,
   };

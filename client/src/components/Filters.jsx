@@ -44,10 +44,10 @@ export function FilterBar({ reports, filters, setFilter, requireCurrency = false
         </label>
       )}
       <Select
-        label="Moneda"
+        label="Mercado"
         value={filters.currency}
         onChange={(v) => setFilter('currency', v)}
-        allLabel={requireCurrency ? undefined : 'Todas'}
+        allLabel={requireCurrency ? undefined : 'Todos'}
         options={meta.currencies.map((c) => ({ value: c, label: c }))}
       />
       <Select label="Año" value={filters.year} onChange={(v) => setFilter('year', v)} allLabel="Todos" options={years.map((y) => ({ value: String(y), label: String(y) }))} />

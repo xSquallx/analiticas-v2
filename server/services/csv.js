@@ -5,14 +5,24 @@ const FULL_TEXT_LIMIT = 60_000;
 const SAMPLE_ROWS = 150;
 const TOP_N = 10;
 
-function toNumber(value) {
+const SUFFIX = { k: 1e3, m: 1e6, b: 1e9 };
+
+/**
+ * Convierte texto a número. Acepta "1,234.56", "1.234,56", "1234.56", "$ 84.37"
+ * y abreviaturas de Optimove: "21.69K" → 21690, "1.2M" → 1200000 (se completan a enteros).
+ * Un 0 es un dato válido y se devuelve como 0.
+ */
+export function toNumber(value) {
   if (value === null || value === undefined) return null;
-  const s = String(value).trim().replace(/[$\s]/g, '');
+  let s = String(value).trim().replace(/[$\s]/g, '');
   if (s === '') return null;
-  // Acepta "1,234.56", "1.234,56" y "1234.56"
-  const normalized = /,\d{1,2}$/.test(s) && s.includes('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
-  const n = Number(normalized);
-  return Number.isFinite(n) ? n : null;
+  const suffix = s.match(/^(-?[\d.,]+)([kmb])$/i);
+  const multiplier = suffix ? SUFFIX[suffix[2].toLowerCase()] : 1;
+  if (suffix) s = suffix[1];
+  const normalized = /,\d{1,2}$/.test(s) && (s.includes('.') || suffix) ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  const n = Number(normalized) * multiplier;
+  if (!Number.isFinite(n)) return null;
+  return suffix ? Math.round(n) : n;
 }
 
 /** Quita BOM y detecta separador automáticamente. */
@@ -24,7 +34,7 @@ export function parseCsv(text) {
 }
 
 /** Columnas en las que al menos el 80% de los valores no vacíos son numéricos. */
-function numericColumns(rows, columns) {
+export function numericColumns(rows, columns) {
   return columns.filter((col) => {
     const values = rows.map((r) => r[col]).filter((v) => v !== undefined && String(v).trim() !== '');
     if (values.length === 0) return false;
@@ -33,17 +43,28 @@ function numericColumns(rows, columns) {
   });
 }
 
-function idColumn(columns) {
-  return columns.find((c) => /(^|\b)(customer|client|cliente|user|usuario|player|jugador)?[\s_-]*id\b/i.test(c)) ?? columns[0];
+const ID_COLUMN = /(^|\b)(customer|client|cliente|user|usuario|player|jugador)?[\s_-]*id\b/i;
+
+/** Columna con nombre de ID (Customer ID, user_id…). null si el CSV no tiene una explícita. */
+export function explicitIdColumn(columns) {
+  return columns.find((c) => ID_COLUMN.test(c)) ?? null;
 }
 
-/** Cuenta valores únicos de la columna de ID (para el archivo de depositantes). */
+function idColumn(columns) {
+  return explicitIdColumn(columns) ?? columns[0];
+}
+
+/**
+ * Cuenta los IDs distintos del CSV de depositantes y sus filas totales.
+ * Puede diferir de los depositantes que reporta Optimove (un ID puede repetirse por depósito).
+ */
 export function countUniqueIds(text) {
   const { rows, columns } = parseCsv(text);
   if (columns.length === 0) return null;
   const col = idColumn(columns);
-  const ids = new Set(rows.map((r) => String(r[col] ?? '').trim()).filter(Boolean));
-  return ids.size || null;
+  const ids = rows.map((r) => String(r[col] ?? '').trim()).filter(Boolean);
+  const unique = new Set(ids).size;
+  return unique ? { unique, rows: ids.length } : null;
 }
 
 /**

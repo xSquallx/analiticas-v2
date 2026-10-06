@@ -61,8 +61,19 @@ export function computeOutliers(reports) {
   for (const r of reports) {
     const month = monthMedians.get(monthKey(r));
     // Historial: el mismo flujo en otros meses
-    const history = byFamily.get(familyKey(r.flowName, r.currency)).filter((o) => o.id !== r.id && !(o.year === r.year && o.month === r.month));
+    const family = byFamily.get(familyKey(r.flowName, r.currency));
+    const history = family.filter((o) => o.id !== r.id && !(o.year === r.year && o.month === r.month));
     const flags = [];
+
+    // La fecha del nombre es solo la de última modificación: dos reportes del mismo flujo en el
+    // mismo mes y mercado son probablemente el mismo flujo cargado dos veces.
+    const sameMonth = family.filter((o) => o.id !== r.id && o.year === r.year && o.month === r.month);
+    if (sameMonth.length) {
+      flags.push({
+        metric: 'duplicate', label: 'Posible duplicado', value: null, baseline: null, basis: 'duplicate',
+        message: `Posible duplicado: hay ${sameMonth.length === 1 ? 'otro reporte' : `${sameMonth.length} reportes más`} de este flujo en el mismo mes y mercado (${sameMonth.map((o) => `"${o.flowName}"`).join(', ')}). Esto impide comparar con el mes siguiente.`,
+      });
+    }
 
     for (const key of KPI_KEYS) {
       const value = r[key];

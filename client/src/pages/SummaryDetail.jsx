@@ -150,7 +150,7 @@ export default function SummaryDetail() {
           {canEdit && <StatusBadge status={summary.status} />}
         </div>
         <p className="mt-1 text-sm text-muted">
-          <span className="text-indigo-300">{cur}</span> · {summary.reportCount} flujos publicados · generado el {formatDate(summary.generatedAt)}
+          <span className="text-indigo-300">Mercado {cur}</span> · montos en USD · {summary.reportCount} flujos publicados · generado el {formatDate(summary.generatedAt)}
           {canEdit && summary.createdBy && <> · por {summary.createdBy.name}</>}
         </p>
 

@@ -4,7 +4,8 @@ const intf = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 0 });
 /** Formatea un valor de métrica. null/undefined se muestra como "—" (dato no disponible). */
 export function formatMetric(value, metric, currency) {
   if (value === null || value === undefined || Number.isNaN(value)) return '—';
-  if (metric?.format === 'money') return `${nf.format(value)}${currency ? ` ${currency}` : ''}`;
+  // Todos los mercados reportan en dólares; el mercado (VES/USD, CLP…) no es la moneda del monto.
+  if (metric?.format === 'money') return `${nf.format(value)} USD`;
   if (metric?.type === 'int') return intf.format(value);
   return nf.format(value);
 }

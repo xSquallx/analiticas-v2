@@ -29,7 +29,7 @@ function ChartTooltip({ active, payload, currency }) {
     <div className="rounded-lg border border-line bg-panel-2 px-3 py-2 text-xs shadow-lg">
       <p className="font-semibold text-white">{d.label}</p>
       <p className="text-slate-300">
-        Mediana: <span className="font-semibold text-white">{formatNumber(d.value)} {currency}</span>
+        Mediana: <span className="font-semibold text-white">{formatNumber(d.value)} USD</span>
       </p>
       <p className="text-muted">Promedio: {formatNumber(d.mean)} · {d.count} flujos</p>
     </div>
@@ -80,25 +80,25 @@ export default function Dashboard() {
   const nr = filtered.map((r) => r.avgNetRevenue).filter((v) => v != null);
   const positive = nr.filter((v) => v > 0).length;
   const rankMetric = metricByKey(meta, rankKey);
-  const cur = filters.currency;
+  const cur = filters.currency || 'Todos los mercados';
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-sm text-muted">Los montos solo se comparan dentro de una misma moneda.</p>
+          <p className="text-sm text-muted">Todos los montos están en USD; el mercado indica el país.</p>
         </div>
-        <FilterBar reports={reports} filters={filters} setFilter={setFilter} requireCurrency />
+        <FilterBar reports={reports} filters={filters} setFilter={setFilter} />
       </div>
 
       {filtered.length === 0 ? (
-        <Empty icon={BarChart3} title="No hay flujos con estos filtros">Prueba con otra moneda o periodo.</Empty>
+        <Empty icon={BarChart3} title="No hay flujos con estos filtros">Prueba con otro mercado o periodo.</Empty>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <Stat label="Flujos analizados" value={filtered.length} sub={cur} />
-            <Stat label="Net revenue mediano" value={formatNumber(median(nr))} sub={`${cur} · promedio: ${formatNumber(average(nr))}`} />
+            <Stat label="Net revenue mediano" value={formatNumber(median(nr))} sub={`USD · ${cur} · promedio: ${formatNumber(average(nr))}`} />
             <Stat label="Flujos con NR positivo" value={nr.length ? `${Math.round((positive / nr.length) * 100)}%` : '—'} sub={`${positive} de ${nr.length}`} />
             <Stat label="Días de actividad prom." value={formatNumber(average(filtered.map((r) => r.avgActivityDays)))} sub={`Depósitos prom.: ${formatNumber(average(filtered.map((r) => r.avgDeposits)))}`} />
           </div>
